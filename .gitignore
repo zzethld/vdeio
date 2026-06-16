@@ -1,0 +1,39 @@
+﻿# Dependencies
+node_modules/
+*/node_modules/
+
+# Build outputs
+dist/
+*/dist/
+release/
+*/release/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+*/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+.temp/
+tmp/
+
+# Test artifacts
+coverage/
+*/coverage/
+
+# Evidence (session artifacts)
+.sisyphus/
