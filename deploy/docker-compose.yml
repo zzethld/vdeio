@@ -1,0 +1,159 @@
+# vdeio - 连锁门店视频管理系统 Docker Compose
+# 使用方法: docker compose up -d
+
+services:
+  # ============================
+  # MySQL 8.0 - 主数据库
+  # ============================
+  mysql:
+    image: mysql:8.0
+    container_name: vdeio-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-vdeio_dev_2024}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-vdeio}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-vdeio_dev_2024}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - vdeio-net
+
+  # ============================
+  # Redis 7 - 缓存 & 消息队列
+  # ============================
+  redis:
+    image: redis:7-alpine
+    container_name: vdeio-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --save 60 1000 --save 300 100
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - vdeio-net
+
+  # ============================
+  # MinIO - 对象存储
+  # ============================
+  minio:
+    image: minio/minio:latest
+    container_name: vdeio-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-vdeio_minio_2024}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - vdeio-net
+
+  # MinIO 初始化 - 创建默认存储桶
+  minio-init:
+    image: minio/mc:latest
+    container_name: vdeio-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-vdeio_minio_2024};
+      mc mb local/video-original 2>/dev/null || true;
+      mc mb local/video-encrypted 2>/dev/null || true;
+      echo 'Buckets created: video-original, video-encrypted';
+      "
+    networks:
+      - vdeio-net
+
+  # ============================
+  # EMQX 5.8 - MQTT 消息 broker
+  # ============================
+  emqx:
+    image: emqx/emqx:5.8
+    container_name: vdeio-emqx
+    restart: unless-stopped
+    ports:
+      - "${EMQX_MQTT_PORT:-1883}:1883"
+      - "${EMQX_WS_PORT:-8083}:8083"
+      - "${EMQX_DASHBOARD_PORT:-18083}:18083"
+    environment:
+      EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_DASHBOARD_USER:-admin}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-vdeio_emqx_2024}
+      # MySQL 认证后端配置
+      EMQX_AUTHENTICATION__1__MECHANISM: password_based
+      EMQX_AUTHENTICATION__1__BACKEND: mysql
+      EMQX_AUTHENTICATION__1__SERVER: "mysql:${MYSQL_PORT:-3306}"
+      EMQX_AUTHENTICATION__1__USERNAME: root
+      EMQX_AUTHENTICATION__1__PASSWORD: ${MYSQL_ROOT_PASSWORD:-vdeio_dev_2024}
+      EMQX_AUTHENTICATION__1__DATABASE: ${MYSQL_DATABASE:-vdeio}
+      EMQX_AUTHENTICATION__1__POOL_SIZE: 8
+      EMQX_AUTHENTICATION__1__PASSWORD_HASH_ALGORITHM__NAME: sha256
+      EMQX_AUTHENTICATION__1__PASSWORD_HASH_ALGORITHM__SALT_POSITION: suffix
+      EMQX_AUTHENTICATION__1__QUERY: "SELECT password_hash, salt, is_superuser FROM mqtt_user WHERE username = $${username} LIMIT 1"
+      EMQX_AUTHENTICATION__1__QUERY_TIMEOUT: 5s
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_log:/opt/emqx/log
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "emqx", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - vdeio-net
+
+# ============================
+# 持久化卷
+# ============================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  emqx_data:
+    driver: local
+  emqx_log:
+    driver: local
+
+# ============================
+# 网络
+# ============================
+networks:
+  vdeio-net:
+    driver: bridge

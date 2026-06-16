@@ -1,0 +1,32 @@
+appId: com.vdeio.player
+productName: 门店视频播放系统
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 门店视频播放系统
+
+files:
+  - dist/**/*
+  - package.json
+  - "!node_modules/**/*"
+
+extraMetadata:
+  main: dist/electron/main.js

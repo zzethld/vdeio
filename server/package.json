@@ -1,0 +1,53 @@
+{
+  "name": "vdeio-server",
+  "version": "1.0.0",
+  "description": "Vdeio backend server",
+  "main": "dist/src/app.js",
+  "scripts": {
+    "start": "node dist/src/app.js",
+    "dev": "ts-node-dev --files --respawn src/app.ts",
+    "build": "tsc",
+    "migrate": "ts-node migrations/run.ts",
+    "seed": "ts-node src/seeders/run.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "vdeio",
+    "video",
+    "distribution"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "minio": "^8.0.7",
+    "mqtt": "^5.15.1",
+    "mysql2": "^3.11.0",
+    "redis": "^4.7.0",
+    "sequelize": "^6.37.3",
+    "tsconfig-paths": "^4.2.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^22.5.4",
+    "@types/supertest": "^7.2.0",
+    "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^4.1.8",
+    "sqlite3": "^6.0.1",
+    "supertest": "^7.2.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.8"
+  }
+}

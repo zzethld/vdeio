@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>VDEIO — 连锁门店加密视频分发平台</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reset.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/black.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+
+<style>
+:root {
+  --accent: #00d4ff;
+  --accent2: #7c3aed;
+  --green: #22c55e;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --bg: #0a0e1a;
+}
+.reveal { background: var(--bg); }
+.reveal .slides { text-align: left; }
+.reveal h1, .reveal h2, .reveal h3 {
+  text-transform: none;
+  text-align: center;
+  font-weight: 700;
+}
+.reveal h2 {
+  font-size: 1.6em;
+  margin-bottom: 0.6em;
+  color: var(--accent);
+  border-bottom: 2px solid #1a2740;
+  padding-bottom: 0.3em;
+}
+.reveal h3 { font-size: 1.15em; color: var(--accent); }
+.reveal section { font-size: 0.72em; line-height: 1.5; }
+.reveal pre {
+  font-size: 0.5em;
+  line-height: 1.35;
+  margin: 0.5em auto;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #1a2740;
+}
+.reveal pre code { padding: 0.6em !important; border-radius: 8px; }
+.reveal ul { margin-left: 0.5em; }
+.reveal li { margin: 0.25em 0; }
+.reveal table { font-size: 0.6em; margin: 0.5em auto; width: 100%; }
+.reveal th { color: var(--accent); border-bottom: 2px solid var(--accent) !important; }
+.reveal td { vertical-align: top; }
+.reveal .tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.65em;
+  font-weight: 600;
+  margin: 2px;
+}
+.reveal .tag-blue { background: #1e3a5f; color: var(--accent); }
+.reveal .tag-green { background: #14532d; color: var(--green); }
+.reveal .tag-purple { background: #3b0764; color: #c084fc; }
+.reveal .tag-orange { background: #78350f; color: var(--orange); }
+.reveal .tag-red { background: #450a0a; color: var(--red); }
+.reveal .center { text-align: center; }
+.reveal .mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.reveal .mermaid svg { max-height: 65vh !important; }
+.reveal .hero h1 {
+  font-size: 2.8em;
+  letter-spacing: 0.15em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.reveal .hero p { text-align: center; font-size: 1.1em; color: #8899bb; }
+.reveal .stat-big { font-size: 2.2em; font-weight: 800; color: var(--accent); }
+.reveal .stat-label { font-size: 0.8em; color: #8899bb; text-align: center; }
+.reveal .stat-row { display: flex; justify-content: center; gap: 2em; margin: 1em 0; }
+.reveal .stat-col { text-align: center; }
+.reveal .footer-note { font-size: 0.5em; color: #556677; text-align: center; margin-top: 1em; }
+.reveal code.inline {
+  background: #141b2d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: var(--accent);
+}
+.reveal .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; }
+.reveal .card {
+  background: #111827;
+  border: 1px solid #1a2740;
+  border-radius: 10px;
+  padding: 1em 1.2em;
+}
+.reveal .card h3 { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<div class="reveal"><div class="slides">
+
+<!-- ===== SLIDE 1: TITLE ===== -->
+<section class="hero">
+  <h1>VDEIO</h1>
+  <p>连锁门店加密视频分发平台</p>
+  <p style="font-size:0.7em; margin-top:2em;">管理员上传 → AES-128 HLS 加密 → 营销活动定向投放 → 门店 Electron 客户端离线播放</p>
+  <div class="stat-row" style="margin-top:2.5em;">
+    <div class="stat-col"><div class="stat-big">1000+</div><div class="stat-label">目标门店</div></div>
+    <div class="stat-col"><div class="stat-big">3</div><div class="stat-label">独立应用包</div></div>
+    <div class="stat-col"><div class="stat-big">311</div><div class="stat-label">服务端测试</div></div>
+    <div class="stat-col"><div class="stat-big">4</div><div class="stat-label">Docker 服务</div></div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 2: 业务背景 ===== -->
+<section>
+  <h2>业务背景与目标</h2>
+  <div class="card-grid">
+    <div class="card">
+      <h3>🎯 核心场景</h3>
+      <ul>
+        <li>连锁品牌 1000+ 门店的培训/宣传视频分发</li>
+        <li>每天约 10GB 新视频，几 GB 旧视频过期</li>
+        <li>营销活动驱动：活动关联视频 + 分配门店 + 时间段</li>
+        <li>同一活动下所有门店看到相同视频列表</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>⚙️ 关键约束</h3>
+      <ul>
+        <li>门店设备：普通 Windows PC（4-8GB RAM）</li>
+        <li>店员登录：钉钉扫码（个人账号）</li>
+        <li>按需播放，非数字标牌循环</li>
+        <li>离线播放：密钥本地缓存 7 天</li>
+        <li>加密：AES-128 HLS（MVP），可升级 ClearKey DRM</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 3: 核心业务流程 ===== -->
+<section>
+  <h2>核心业务流程</h2>
+  <div class="mermaid">
+flowchart LR
+  A["📂 管理员<br/>上传视频"] --> B["🔐 服务端<br/>AES-128 加密"]
+  B --> C["📋 创建<br/>营销活动"]
+  C --> D["🏪 关联视频<br/>分配门店"]
+  D --> E["📡 MQTT 推送<br/>触发同步"]
+  E --> F["💻 门店客户端<br/>下载/缓存"]
+  F --> G["▶️ 店员扫码<br/>播放视频"]
+  G --> H["📊 播放日志<br/>遥测上报"]
+
+  style A fill:#1e3a5f,stroke:#00d4ff,color:#fff
+  style B fill:#3b0764,stroke:#7c3aed,color:#fff
+  style C fill:#1e3a5f,stroke:#00d4ff,color:#fff
+  style D fill:#1e3a5f,stroke:#00d4ff,color:#fff
+  style E fill:#14532d,stroke:#22c55e,color:#fff
+  style F fill:#78350f,stroke:#f59e0b,color:#fff
+  style G fill:#78350f,stroke:#f59e0b,color:#fff
+  style H fill:#14532d,stroke:#22c55e,color:#fff
+  </div>
+</section>
+
+<!-- ===== SLIDE 4: 系统架构总览 ===== -->
+<section>
+  <h2>系统架构 — 三层分布</h2>
+  <div class="mermaid">
+graph TB
+  subgraph Cloud["☁️ 云端中心层"]
+    API["Node.js + Express<br/>REST API :3000"]
+    MINIO["MinIO<br/>视频文件存储"]
+    EMQX["EMQX 5.8<br/>MQTT 设备通道"]
+    MySQL[("MySQL 8.0<br/>13 张表")]
+    Redis[("Redis 7<br/>状态/黑名单/队列")]
+    API --> MySQL
+    API --> MINIO
+    API --> EMQX
+    API --> Redis
+  end
+
+  subgraph Admin["🖥️ 管理后台 (Web)"]
+    SPA["Vue3 + Element Plus<br/>+ ECharts :5173"]
+  end
+
+  subgraph Edge["💻 门店边缘节点 (Windows PC)"]
+    Electron["Electron 32 + Vue3<br/>+ Shaka Player :5174"]
+    Disk["本地磁盘缓存<br/>C:\VideoCache\"]
+    Safe["safeStorage<br/>OS 级密钥加密"]
+    Electron --> Disk
+    Electron --> Safe
+  end
+
+  SPA -.HTTPS.-> API
+  Electron -.HTTPS 预签名.-> MINIO
+  Electron <-.MQTT 遥测/命令.-> EMQX
+  Electron -.HTTPS 认证端点.-> API
+
+  style Cloud fill:#0d1117,stroke:#00d4ff
+  style Admin fill:#0d1117,stroke:#22c55e
+  style Edge fill:#0d1117,stroke:#f59e0b
+  </div>
+</section>
+
+<!-- ===== SLIDE 5: Monorepo 结构 ===== -->
+<section>
+  <h2>Monorepo — 三包独立架构</h2>
+  <table>
+    <tr><th>目录</th><th>技术栈</th><th>角色</th><th>端口</th></tr>
+    <tr>
+      <td><code>server/</code></td>
+      <td>Node + Express + TS + Sequelize</td>
+      <td>REST API，入口 <code>src/app.ts</code></td>
+      <td><span class="tag tag-blue">:3000</span></td>
+    </tr>
+    <tr>
+      <td><code>admin/</code></td>
+      <td>Vue3 + Element Plus + Pinia</td>
+      <td>运营管理后台 SPA</td>
+      <td><span class="tag tag-green">:5173</span></td>
+    </tr>
+    <tr>
+      <td><code>client/</code></td>
+      <td>Vue3 + Electron + Shaka Player</td>
+      <td>门店 Windows 播放器</td>
+      <td><span class="tag tag-orange">:5174</span></td>
+    </tr>
+    <tr>
+      <td><code>deploy/</code></td>
+      <td>Docker Compose</td>
+      <td>MySQL / Redis / MinIO / EMQX</td>
+      <td><span class="tag tag-purple">容器</span></td>
+    </tr>
+  </table>
+  <p style="margin-top:0.8em;">路径别名 <code class="inline">@/ → src/</code> 在三个包中统一使用。Server 启动后自动运行 3 个后台调度器：</p>
+  <ul>
+    <li><span class="tag tag-blue">campaign-expiry</span> 活动到期扫描（60s）</li>
+    <li><span class="tag tag-orange">alert-scan</span> 告警巡检（10min）</li>
+    <li><span class="tag tag-purple">encryption-queue</span> 加密队列处理（5min + 启动突发，重试 ≤3）</li>
+  </ul>
+</section>
+
+<!-- ===== SLIDE 6: 双认证体系 ===== -->
+<section>
+  <h2>双认证体系 — JWT HS512</h2>
+  <div class="mermaid">
+sequenceDiagram
+  participant U as 管理员
+  participant O as 店员(钉钉)
+  participant S as Server
+  participant R as Redis
+
+  rect rgb(30,58,95)
+    Note over U,S: 管理员：用户名/密码
+    U->>S: POST /admin/auth/login {user, pass}
+    S->>S: bcrypt 校验 (5次失败→锁定15min)
+    S->>U: accessToken(2h) + refreshToken(7d)
+  end
+
+  rect rgb(120,53,15)
+    Note over O,S: 店员：钉钉扫码
+    O->>S: GET /auth/dingtalk/qrcode
+    S->>R: 存 state=pending (5min TTL)
+    S-->>O: qrCodeUrl + state
+    O->>O: iframe 内钉钉扫码
+    Note over O: 钉钉 GET 重定向到 callback
+    O->>S: GET /auth/dingtalk/callback?authCode=&state=
+    S->>S: authCode → userAccessToken → userInfo
+    S->>R: 存 tokens 到 state key
+    S-->>O: HTML "登录成功"
+    O->>S: GET /auth/poll?state= (轮询)
+    S-->>O: {accessToken, refreshToken, user}
+  end
+
+  rect rgb(69,10,10)
+    Note over U,O,R: 登出 / Refresh 轮换
+    S->>R: jwt:blacklist:{token} (TTL=过期时间)
+  end
+  </div>
+</section>
+
+<!-- ===== SLIDE 7: 视频加密链路 ===== -->
+<section>
+  <h2>视频加密链路 — AES-128 HLS</h2>
+  <div class="mermaid">
+flowchart LR
+  A["MP4 原片"] -->|"分片上传<br/>init/chunk/complete"| B["MinIO<br/>原始桶"]
+  B --> C{"加密队列"}
+  C -->|"FFmpeg"| D["output.m3u8<br/>+ seg_*.ts (AES-128)"]
+  D --> E["MinIO<br/>加密桶"]
+
+  subgraph KeyMgmt["密钥管理"]
+    F["crypto.randomBytes(16)<br/>→ 128-bit AES key"]
+    F --> G["AES-256 加密<br/>(MASTER_KEY)"]
+    G --> H[("MySQL video_keys<br/>1:1 with Video")]
+  end
+
+  C -.-> F
+
+  style C fill:#3b0764,stroke:#7c3aed,color:#fff
+  style KeyMgmt fill:#0d1117,stroke:#ef4444
+  </div>
+  <pre><code class="bash"># FFmpeg 加密命令（server/src/services/encryption.ts）
+ffmpeg -i input.mp4 \
+  -hls_time 10 \
+  -hls_key_info_file key_info \
+  -hls_playlist_type vod \
+  -hls_segment_filename "seg_%03d.ts" \
+  output.m3u8</code></pre>
+  <p class="footer-note">MASTER_KEY（32 字节 hex）存于环境变量，不入库。更换后存量视频无法解密。</p>
+</section>
+
+<!-- ===== SLIDE 8: 密钥分发与离线播放 ===== -->
+<section>
+  <h2>密钥分发与离线播放</h2>
+  <div class="mermaid">
+sequenceDiagram
+  participant P as Shaka Player
+  participant E as Electron 主进程
+  participant SS as safeStorage
+  participant S as Server API
+
+  P->>P: 读取 m3u8 → 发现 EXT-X-KEY URI
+  P->>E: 请求密钥 URL (含 JWT + deviceId)
+  E->>SS: 查本地缓存 (7天 TTL)
+  alt 缓存有效
+    SS-->>E: 返回缓存的 16 字节密钥
+  else 缓存过期/不存在
+    E->>S: HTTPS 请求密钥
+    S->>S: 验证 JWT + 设备权限 + 时间段
+    S-->>E: 解密后的 AES key
+    E->>SS: 存入 safeStorage (OS 级加密)
+  end
+  E-->>P: 16 字节二进制密钥
+  P->>P: 解密 ts 分片 → 播放
+  </div>
+  <div class="card-grid">
+    <div class="card">
+      <h3>🔒 安全特性</h3>
+      <ul>
+        <li>预签名 URL 绑定 deviceId，24h 过期</li>
+        <li>密钥 AES-256 加密存 MySQL</li>
+        <li>safeStorage 绑定 OS 用户 + 机器</li>
+        <li>JWT 签名 + 请求频率限制</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>📴 离线策略</h3>
+      <ul>
+        <li>密钥缓存 7 天（断网可播）</li>
+        <li>播放日志/遥测本地队列（48h）</li>
+        <li>联网后批量上报</li>
+        <li>磁盘 &gt;85% 暂停下载，&gt;95% LRU 淘汰</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 9: 营销活动生命周期 ===== -->
+<section>
+  <h2>营销活动驱动 — 状态机</h2>
+  <div class="mermaid">
+stateDiagram-v2
+  [*] --> draft: 创建活动
+  draft --> active: 发布 (start_time 到达)
+  active --> ended: end_time 到达 / 手动结束
+  ended --> [*]
+
+  note right of active
+    📋 关联视频（多选）
+    🏪 分配门店（按区域/全局）
+    📡 MQTT 推送变更通知
+    → 触发门店增量同步
+  end note
+
+  note right of ended
+    🗑️ 自动回收视频权限
+    → 门店删除过期视频
+  end note
+  </div>
+  <table>
+    <tr><th>API</th><th>方法</th><th>说明</th></tr>
+    <tr><td><code>/admin/campaigns</code></td><td>POST</td><td>创建活动（草稿）</td></tr>
+    <tr><td><code>/admin/campaigns/:id/publish</code></td><td>POST</td><td>发布 → 关联视频/门店 → MQTT 推送</td></tr>
+    <tr><td><code>/admin/campaigns/:id/end</code></td><td>POST</td><td>结束 → 回收权限 → 推送删除指令</td></tr>
+    <tr><td>campaign-expiry 定时器</td><td>60s</td><td>自动扫描到期活动</td></tr>
+  </table>
+</section>
+
+<!-- ===== SLIDE 10: 边缘增量同步 ===== -->
+<section>
+  <h2>边缘增量同步协议</h2>
+  <div class="mermaid">
+sequenceDiagram
+  participant C as 门店客户端
+  participant S as Server
+  participant M as MinIO
+
+  Note over C,S: 触发：启动 / MQTT推送 / 定时(2h)
+  C->>S: POST /devices/me/sync {cachedVideoIds: [101,102]}
+  Note right of S: 计算差集：<br/>应有集合(活动关联) − 上报集合
+  S-->>C: {downloads: [...], deletes: [...]}
+
+  loop 逐个下载
+    C->>M: HTTP Range 断点续传 (预签名URL)
+    M-->>C: ts 分片 + m3u8
+  end
+
+  loop 逐个删除
+    C->>C: 删除本地过期视频
+  end
+
+  Note over C: 同步状态存入 .sync_state.json
+  </div>
+  <pre><code class="typescript">// client/electron/sync-service.ts — 核心同步逻辑
+async function syncContent() {
+  const cachedIds = readLocalManifest();      // 本地已有视频 ID
+  const diff = await api.post('/devices/me/sync', { cachedVideoIds: cachedIds });
+  await Promise.all([
+    ...diff.downloads.map(v => downloadWithResume(v)), // HTTP Range 断点续传
+    ...diff.deletes.map(v => evictLocal(v)),           // LRU 淘汰
+  ]);
+  await writeLocalManifest();                // 更新 .sync_state.json
+}</code></pre>
+</section>
+
+<!-- ===== SLIDE 11: 门店客户端架构 ===== -->
+<section>
+  <h2>门店客户端 — Electron 内部架构</h2>
+  <div class="mermaid">
+graph TB
+  subgraph Main["Electron 主进程"]
+    Sync["sync-service.ts<br/>HLS差分/下载/解密/LRU"]
+    MQTT["mqtt-bridge.ts<br/>遥测上报 + 远程命令"]
+    Preload["preload.ts<br/>contextBridge + contextIsolation"]
+  end
+
+  subgraph Renderer["渲染进程 (Vue3)"]
+    Login["钉钉扫码登录"]
+    Home["视频列表<br/>按活动分组"]
+    Player["Shaka Player<br/>AES-128 HLS 解密"]
+    SyncUI["同步状态通知"]
+  end
+
+  subgraph Storage["本地存储"]
+    Disk["C:\VideoCache\<br/>m3u8 + ts 分片"]
+    Safe["safeStorage<br/>JWT + 密钥(7d) + deviceId"]
+  end
+
+  Preload -.window.electronAPI.-> Renderer
+  Sync --> Disk
+  MQTT --> EMQX2["EMQX Broker"]
+  Player --> Disk
+  Renderer --> Safe
+
+  style Main fill:#0d1117,stroke:#f59e0b
+  style Renderer fill:#0d1117,stroke:#00d4ff
+  style Storage fill:#0d1117,stroke:#22c55e
+  </div>
+  <p class="footer-note">路由使用 createWebHashHistory（Electron file:// 协议兼容）。真实引擎在 <code class="inline">client/electron/</code>，非 <code class="inline">src/</code>。</p>
+</section>
+
+<!-- ===== SLIDE 12: 设备监控与遥测 ===== -->
+<section>
+  <h2>设备监控与遥测 — MQTT 通道</h2>
+  <div class="mermaid">
+flowchart LR
+  subgraph Client["门店客户端"]
+    Collect["采集 CPU/内存/磁盘<br/>缓存大小/同步进度"]
+    Report["MQTT 上报<br/>(每60s / 事件触发)"]
+  end
+
+  subgraph EMQX["EMQX 5.8"]
+    Topic1["telemetry/{deviceId}"]
+    Topic2["commands/{deviceId}"]
+    Will["Will 遗嘱消息<br/>→ 离线检测"]
+  end
+
+  subgraph Server["服务端"]
+    Sub["MQTT 订阅<br/>+ Webhook 状态同步"]
+    Store[("DeviceTelemetry<br/>MySQL")]
+    Alert["告警引擎<br/>(10min 巡检)"]
+    Dash["管理看板<br/>ECharts"]
+  end
+
+  Collect --> Report
+  Report -.pub.-> Topic1
+  Topic1 -.sub.-> Sub
+  Sub --> Store
+  Sub --> Alert
+  Store --> Dash
+  Sub -.pub.-> Topic2
+  Topic2 -.→ 远程命令.-> Client
+  Will -.→ 离线.-> Sub
+
+  style EMQX fill:#0d1117,stroke:#22c55e
+  style Alert fill:#450a0a,stroke:#ef4444
+  </div>
+  <p style="margin-top:0.5em;">告警规则：设备离线 &gt;30min · 磁盘 &gt;80% · 同步失败 → <span class="tag tag-red">钉钉群机器人</span></p>
+</section>
+
+<!-- ===== SLIDE 13: 数据模型 ===== -->
+<section>
+  <h2>数据模型 — 13 张 Sequelize 表</h2>
+  <div class="mermaid">
+erDiagram
+  Video ||--|| VideoKey : "1:1 加密密钥"
+  Video ||--o{ CampaignVideo : "多对多"
+  Campaign ||--o{ CampaignVideo : "多对多"
+  Campaign ||--o{ CampaignStore : "分配门店"
+  Store ||--o{ CampaignStore : "被分配"
+  Store ||--o{ Device : "绑定设备"
+  User ||--o{ UserStoreBinding : "绑定门店"
+  Device ||--o{ DeviceTelemetry : "遥测记录"
+  Video ||--o{ PlayLog : "播放日志"
+  Category ||--o{ Video : "分类"
+
+  Video {
+    bigint id PK
+    string title
+    enum status
+    bigint categoryId
+    timestamp deletedAt "paranoid软删除"
+  }
+  Campaign {
+    bigint id PK
+    string name
+    enum status "draft/active/ended"
+    timestamp startTime
+    timestamp endTime
+  }
+  Device {
+    bigint id PK
+    string deviceId UK
+    bigint storeId
+    enum status "online/offline"
+  }
+  </div>
+</section>
+
+<!-- ===== SLIDE 14: 部署架构 ===== -->
+<section>
+  <h2>部署架构 — Docker Compose</h2>
+  <pre><code class="yaml"># deploy/docker-compose.yml
+services:
+  mysql:     # :3306 — 业务数据 + 加密密钥
+  redis:     # :6379 — 在线状态/JWT黑名单/任务队列
+  minio:     # :9000 API / :9001 控制台 — 视频文件
+  emqx:      # :1883 MQTT / :8083 WS / :18083 看板</code></pre>
+  <table>
+    <tr><th>组件</th><th>端口</th><th>用途</th><th>认证方式</th></tr>
+    <tr><td>MySQL 8.0</td><td>3306</td><td>13 张表，paranoid 软删除</td><td>DB_USER / DB_PASSWORD</td></tr>
+    <tr><td>Redis 7</td><td>6379</td><td>JWT 黑名单、state、遥测缓存</td><td>无密码(dev) / ACL(prod)</td></tr>
+    <tr><td>MinIO</td><td>9000/9001</td><td>original + encrypted 双桶</td><td>ACCESS_KEY / SECRET_KEY</td></tr>
+    <tr><td>EMQX 5.8</td><td>1883/8083/18083</td><td>设备 MQTT 认证 + Webhook</td><td>mqtt_user 表 (MySQL)</td></tr>
+  </table>
+  <p class="footer-note">EMQX 通过 MySQL <code class="inline">mqtt_user</code> 表认证设备 — 删除 Device 行即吊销 MQTT 访问权限。</p>
+</section>
+
+<!-- ===== SLIDE 15: 零配置本地开发 ===== -->
+<section>
+  <h2>零配置本地开发</h2>
+  <div class="mermaid">
+flowchart LR
+  A["DB_DIALECT=sqlite"] --> B["内存 SQLite<br/>替代 MySQL"]
+  A --> C["自动 Redis Mock<br/>替代 Redis"]
+  A --> D["自动种子 admin/admin123"]
+  B --> E["npm run dev"]
+  C --> E
+  D --> E
+  E --> F["✅ 完整可运行<br/>无需 Docker"]
+  </div>
+  <pre><code class="powershell"># 零基础设施启动（推荐入门）
+cd server; npm install
+$env:DB_DIALECT='sqlite'   # 内存SQLite + Redis Mock + 自动种子
+npm run dev                # ts-node-dev 热重载
+
+# 无钉钉密钥？用 mock 登录
+POST /api/v1/auth/mock-login  # 直接拿真实 JWT</code></pre>
+  <div class="card-grid" style="margin-top:0.8em;">
+    <div class="card">
+      <h3>完整启动（含基础设施）</h3>
+      <ul style="font-size:0.9em;">
+        <li><code>cd deploy; docker compose up -d</code></li>
+        <li><code>cd server; npm run dev</code></li>
+        <li><code>cd admin; npm run dev</code> → :5173</li>
+        <li><code>cd client; npm run electron:dev</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>打包 Windows 安装包</h3>
+      <ul style="font-size:0.9em;">
+        <li><code>cd client; npm run electron:build</code></li>
+        <li>→ NSIS 安装包输出至 <code>release/</code></li>
+        <li>electron-updater 支持自动更新</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 16: 项目状态与测试 ===== -->
+<section>
+  <h2>项目状态与测试覆盖</h2>
+  <div class="stat-row">
+    <div class="stat-col"><div class="stat-big">311</div><div class="stat-label">Server Tests</div></div>
+    <div class="stat-col"><div class="stat-big">86</div><div class="stat-label">Client Tests</div></div>
+    <div class="stat-col"><div class="stat-big">38</div><div class="stat-label">Admin Tests</div></div>
+    <div class="stat-col"><div class="stat-big">37</div><div class="stat-label">API 端点</div></div>
+  </div>
+  <table>
+    <tr><th>测试覆盖</th><th>说明</th></tr>
+    <tr><td>认证路由</td><td>钉钉登录、JWT 刷新、登出、黑名单</td></tr>
+    <tr><td>视频管理</td><td>CRUD、分片上传 init/chunk/complete</td></tr>
+    <tr><td>营销活动</td><td>CRUD、状态转换、发布、到期</td></tr>
+    <tr><td>设备 API</td><td>注册、绑定、增量同步、播放许可证、密钥下发</td></tr>
+    <tr><td>加密服务</td><td>AES-256 密钥管理、HLS 切片</td></tr>
+    <tr><td>客户端</td><td>播放器组合式、DingTalk 认证、设备状态</td></tr>
+  </table>
+  <pre style="font-size:0.45em;"><code class="text">✓ F1 核心功能全部验证通过（5/5）
+  1. 营销活动 CRUD + 生命周期状态机
+  2. 分片视频上传（断点续传）
+  3. 设备注册/绑定/同步/内容分发
+  4. 钉钉扫码认证流程
+  5. 管理看板与管理 API</code></pre>
+</section>
+
+<!-- ===== SLIDE 17: 技术栈总览 ===== -->
+<section>
+  <h2>技术栈总览</h2>
+  <table>
+    <tr><th>层级</th><th>技术</th><th>版本</th><th>用途</th></tr>
+    <tr><td>后端</td><td>Node.js + Express + TypeScript</td><td>18 + 4 + 5</td><td>REST API</td></tr>
+    <tr><td>ORM</td><td>Sequelize</td><td>6.x</td><td>MySQL 模型 + 迁移</td></tr>
+    <tr><td>数据库</td><td>MySQL</td><td>8.0</td><td>13 表，密钥 AES-256 加密</td></tr>
+    <tr><td>缓存</td><td>Redis</td><td>7.x</td><td>JWT 黑名单 / 状态 / 队列</td></tr>
+    <tr><td>存储</td><td>MinIO</td><td>Latest</td><td>HLS 文件双桶</td></tr>
+    <tr><td>消息</td><td>EMQX</td><td>5.8</td><td>设备 MQTT 通道</td></tr>
+    <tr><td>加密</td><td>FFmpeg + AES-128</td><td>6.x</td><td>HLS 切片 + 加密</td></tr>
+    <tr><td>管理端</td><td>Vue3 + Element Plus</td><td>3.x</td><td>管理 SPA + ECharts</td></tr>
+    <tr><td>客户端</td><td>Electron + Vue3</td><td>32.x</td><td>Windows 桌面应用</td></tr>
+    <tr><td>播放器</td><td>Shaka Player</td><td>4.x</td><td>HLS 解密播放</td></tr>
+  </table>
+  <p class="footer-note">全部开源许可证（MIT / Apache 2.0 / BSD）。MinIO AGPLv3 仅服务端内部使用，无商业风险。</p>
+</section>
+
+<!-- ===== SLIDE 18: 总结 ===== -->
+<section class="hero">
+  <h2 style="border:none;">总结</h2>
+  <div class="card-grid" style="margin-top:1em;">
+    <div class="card">
+      <h3>✅ 已实现</h3>
+      <ul>
+        <li>完整的加密视频分发链路</li>
+        <li>营销活动驱动的内容管理</li>
+        <li>钉钉扫码 + JWT 双认证</li>
+        <li>边缘增量同步 + 离线播放</li>
+        <li>设备监控 + MQTT 遥测</li>
+        <li>435 测试覆盖，5 核心功能验证</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🔮 后续规划</h3>
+      <ul>
+        <li>ClearKey DRM 升级</li>
+        <li>CDN 加速下载（1Gbps 基线）</li>
+        <li>electron-updater 自动更新</li>
+        <li>安全加固（DevTools 禁用/CSP/防截图）</li>
+        <li>大规模门店压力测试</li>
+      </ul>
+    </div>
+  </div>
+  <p class="center" style="margin-top:2em; font-size:1.2em; color:var(--accent);">VDEIO — 让每一帧视频安全抵达每一个门店</p>
+</section>
+
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/plugin/highlight/highlight.min.js"></script>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#e0e7ff',
+      primaryBorderColor: '#00d4ff',
+      lineColor: '#475569',
+      secondaryColor: '#111827',
+      tertiaryColor: '#0d1117',
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '14px',
+    },
+    flowchart: { curve: 'basis', useMaxWidth: true },
+    sequence: { useMaxWidth: true, mirrorActors: false },
+  });
+
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    margin: 0.04,
+    transition: 'slide',
+    plugins: [RevealHighlight],
+  }).then(() => {
+    // Render mermaid on the current slide
+    function renderMermaid() {
+      const slide = Reveal.getCurrentSlide();
+      if (!slide) return;
+      const diagrams = slide.querySelectorAll('.mermaid:not([data-processed])');
+      if (diagrams.length === 0) return;
+      diagrams.forEach((el) => { el.dataset.processed = '1'; });
+      mermaid.run({ nodes: diagrams });
+    }
+    renderMermaid();
+    Reveal.on('slidechanged', renderMermaid);
+  });
+</script>
+
+</body>
+</html>
