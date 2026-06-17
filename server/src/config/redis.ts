@@ -142,11 +142,16 @@ export function getRedis(): MemoryRedis | import('ioredis').Redis {
   return instance;
 }
 
-// Export redis as a getter so it's lazily initialized
+// Export redis as a getter so it's lazily initialized.
+// The Proxy routes all property access to the lazily-created backing instance
+// (either MemoryRedis in mock mode or a real ioredis client). `prop` is a
+// dynamic PropertyKey, so we index into the instance via a Record type — this
+// is sound because the Proxy target pretends to be MemoryRedis and callers
+// only ever touch real members of it.
 export const redis = new Proxy({} as MemoryRedis, {
-  get(_target, prop) {
-    const instance = getRedis();
-    const value = (instance as any)[prop];
+  get(_target, prop: string | symbol) {
+    const instance = getRedis() as unknown as Record<string | symbol, unknown>;
+    const value = instance[prop];
     if (typeof value === 'function') {
       return value.bind(instance);
     }
