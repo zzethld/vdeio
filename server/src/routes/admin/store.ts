@@ -1,10 +1,16 @@
 import { Router, Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, UniqueConstraintError } from 'sequelize';
 import { authMiddleware } from '../../middleware/auth';
 import { adminAuthMiddleware } from '../../middleware/admin-auth';
 import { StoreModel } from '../../models';
 
 const router = Router();
+
+// Type guard: narrows a thrown value to Sequelize's unique-constraint error.
+// Used by create-store to surface HTTP 409 instead of 500 on duplicate codes.
+function isUniqueConstraintError(err: unknown): err is UniqueConstraintError {
+  return err instanceof UniqueConstraintError;
+}
 
 // Apply auth + admin middleware to all store routes
 router.use(authMiddleware, adminAuthMiddleware);
@@ -85,18 +91,21 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('Create store error:', err);
     const message = err instanceof Error ? err.message : 'Failed to create store';
-    // Sequelize wraps unique violations as SequelizeUniqueConstraintError whose
+    // Sequelize wraps unique violations as UniqueConstraintError whose
     // top-level .message is just "Validation error" — the actual hint lives in
-    // err.errors[]. Detect either the error class name or any nested message.
-    const isUniqueViolation =
+    // err.errors[]. Detect either the error class or any nested message.
+    let isUniqueViolation =
       message.includes('unique') ||
       message.includes('Duplicate') ||
-      (err as any)?.name === 'SequelizeUniqueConstraintError' ||
-      Array.isArray((err as any)?.errors) &&
-        (err as any).errors.some(
-          (e: { message?: string; type?: string }) =>
-            (e.message ?? '').includes('unique') || e.type === 'unique violation',
-        );
+      isUniqueConstraintError(err);
+    if (!isUniqueViolation && Array.isArray((err as { errors?: unknown })?.errors)) {
+      isUniqueViolation = (
+        (err as { errors: Array<{ message?: string; type?: string }> }).errors
+      ).some(
+        (e) =>
+          (e.message ?? '').includes('unique') || e.type === 'unique violation',
+      );
+    }
     const statusCode = isUniqueViolation ? 409 : 500;
     res.status(statusCode).json({
       error: statusCode === 409 ? 'Conflict' : 'Internal Server Error',
