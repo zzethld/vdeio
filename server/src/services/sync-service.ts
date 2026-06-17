@@ -4,9 +4,37 @@ import { VideoModel, VideoKeyModel } from '../models';
 import { presignedGetUrl } from '../config/minio';
 import { getKeyForVideo } from './key-manager';
 
+/** Row shape produced by the calculateSyncDiff raw SELECT. */
+interface ShouldCacheRow {
+  id: number;
+  title: string;
+  file_size: number;
+  hls_url: string;
+  campaign_id: number;
+}
+
+/** Row shape produced by the getAuthorizedVideos raw SELECT. */
+interface CampaignRow {
+  id: number;
+  title: string;
+  start_time: Date;
+  end_time: Date;
+  video_id: number;
+  video_title: string;
+  file_size: number;
+  duration: number;
+  cover_url: string;
+  hls_url: string;
+}
+
+/** Row shape produced by the isVideoAuthorizedForStore COUNT(*) raw SELECT. */
+interface CountRow {
+  cnt: number;
+}
+
 export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[]) {
   // 1. Query videos that should be cached
-  const shouldCache = await sequelize.query(
+  const shouldCache = await sequelize.query<ShouldCacheRow>(
     `SELECT DISTINCT v.id, v.title, v.file_size, v.hls_url, cv.campaign_id
      FROM videos v
      JOIN campaign_videos cv ON v.id = cv.video_id
@@ -20,13 +48,13 @@ export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[
     { replacements: [storeId], type: QueryTypes.SELECT }
   );
 
-  const shouldSet = new Set((shouldCache as any[]).map((v: any) => v.id));
+  const shouldSet = new Set(shouldCache.map(v => v.id));
   const cachedSet = new Set(cachedVideoIds);
 
   // 2. Calculate diff
-  const downloads = (shouldCache as any[])
-    .filter((v: any) => !cachedSet.has(v.id))
-    .map((v: any) => ({
+  const downloads = shouldCache
+    .filter(v => !cachedSet.has(v.id))
+    .map(v => ({
       videoId: v.id,
       title: v.title,
       fileSize: v.file_size,
@@ -42,7 +70,7 @@ export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[
 }
 
 export async function getAuthorizedVideos(storeId: number) {
-  const campaigns = await sequelize.query(
+  const campaigns = await sequelize.query<CampaignRow>(
     `SELECT DISTINCT c.id, c.title, c.start_time, c.end_time,
             v.id as video_id, v.title as video_title, v.file_size, v.duration, v.cover_url, v.hls_url
      FROM campaigns c
@@ -60,7 +88,7 @@ export async function getAuthorizedVideos(storeId: number) {
 
   // Group by campaign
   const campaignMap = new Map();
-  for (const row of (campaigns as any[])) {
+  for (const row of campaigns) {
     if (!campaignMap.has(row.id)) {
       campaignMap.set(row.id, { id: row.id, title: row.title, startTime: row.start_time, endTime: row.end_time, videos: [] });
     }
@@ -74,7 +102,7 @@ export async function getAuthorizedVideos(storeId: number) {
 }
 
 export async function isVideoAuthorizedForStore(videoId: number, storeId: number): Promise<boolean> {
-  const result = await sequelize.query(
+  const result = await sequelize.query<CountRow>(
     `SELECT COUNT(*) as cnt FROM campaign_videos cv
      JOIN campaigns c ON cv.campaign_id = c.id
      JOIN campaign_stores cs ON cs.campaign_id = c.id
@@ -83,7 +111,7 @@ export async function isVideoAuthorizedForStore(videoId: number, storeId: number
        AND NOW() BETWEEN c.start_time AND c.end_time`,
     { replacements: [videoId, storeId], type: QueryTypes.SELECT }
   );
-  return (result[0] as any).cnt > 0;
+  return result[0].cnt > 0;
 }
 
 export async function getVideoPlaylist(videoId: number): Promise<string> {
