@@ -55,7 +55,7 @@ vi.mock('../../models', () => ({
   },
 }));
 
-vi.mock('../../services/key-manager', () => ({
+vi.mock('../../services/encryption/key-manager', () => ({
   generateEncryptionKey: vi.fn(),
   storeKey: vi.fn(),
 }));
@@ -67,7 +67,7 @@ import fs from 'fs/promises';
 import { pipeline } from 'stream/promises';
 import { minioClient } from '../../config/minio';
 import { VideoModel } from '../../models';
-import { generateEncryptionKey, storeKey } from '../../services/key-manager';
+import { generateEncryptionKey, storeKey } from '../../services/encryption/key-manager';
 
 // ---------- helpers ----------
 
@@ -179,7 +179,7 @@ beforeEach(async () => {
       update: vi.fn(),
     },
   }));
-  vi.doMock('../../services/key-manager', () => ({
+  vi.doMock('../../services/encryption/key-manager', () => ({
     generateEncryptionKey: vi.fn(),
     storeKey: vi.fn(),
   }));
@@ -260,7 +260,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey } = await import('../../services/encryption/key-manager');
 
       const videos = [createMockVideo({ id: 1 }), createMockVideo({ id: 2 }), createMockVideo({ id: 3 })];
       (VM.findByPk as any).mockImplementation((id: number) => {
@@ -307,7 +307,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey } = await import('../../services/encryption/key-manager');
 
       const mockVideo = createMockVideo({ id: 10 });
       (VM.findByPk as any).mockResolvedValue(mockVideo);
@@ -337,7 +337,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey } = await import('../../services/encryption/key-manager');
 
       const mockVideo = createMockVideo({ id: 11 });
       (VM.findByPk as any).mockResolvedValue(mockVideo);
@@ -365,7 +365,7 @@ describe('Encryption Service', () => {
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
       const fsMod = await import('fs/promises');
-      const { generateEncryptionKey: genKey } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey } = await import('../../services/encryption/key-manager');
 
       const mockVideo = createMockVideo({ id: 12 });
       (VM.findByPk as any).mockResolvedValue(mockVideo);
@@ -397,7 +397,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey } = await import('../../services/encryption/key-manager');
       const { minioClient: mc } = await import('../../config/minio');
       const fsMod = await import('fs/promises');
 
@@ -455,7 +455,7 @@ describe('Encryption Service', () => {
       const fsMod = await import('fs/promises');
       const { pipeline: pipelineFn } = await import('stream/promises');
       const { minioClient: mc } = await import('../../config/minio');
-      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/encryption/key-manager');
 
       const mockVideo = createMockVideo({ id: 30 });
       (VM.findByPk as any).mockResolvedValue(mockVideo);
@@ -562,7 +562,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/encryption/key-manager');
       const { minioClient: mc } = await import('../../config/minio');
       const fsMod = await import('fs/promises');
 
@@ -624,7 +624,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/encryption/key-manager');
       const { minioClient: mc } = await import('../../config/minio');
       const fsMod = await import('fs/promises');
 
@@ -648,7 +648,7 @@ describe('Encryption Service', () => {
       const { VideoModel: VM } = await import('../../models');
       const { spawn: spawnFn } = await import('child_process');
       const { pipeline: pipelineFn } = await import('stream/promises');
-      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/key-manager');
+      const { generateEncryptionKey: genKey, storeKey: storeKeyFn } = await import('../../services/encryption/key-manager');
       const { minioClient: mc } = await import('../../config/minio');
       const fsMod = await import('fs/promises');
 

@@ -2,7 +2,7 @@ import { sequelize } from '../config/database';
 import { QueryTypes } from 'sequelize';
 import { VideoModel, VideoKeyModel } from '../models';
 import { presignedGetUrl } from '../config/minio';
-import { getKeyForVideo } from './key-manager';
+import { getKeyForVideo } from './encryption';
 
 /** Row shape produced by the calculateSyncDiff raw SELECT. */
 interface ShouldCacheRow {

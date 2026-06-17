@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { VideoKeyModel } from '../models';
+import { VideoKeyModel } from '../../models';
 
 const MASTER_KEY = process.env.MASTER_KEY || 'dev_master_key_32_bytes_pad_here!!';
 

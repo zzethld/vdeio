@@ -18,7 +18,7 @@ vi.mock('../../config/minio', () => ({
   },
 }));
 
-vi.mock('../../services/key-manager', () => ({
+vi.mock('../../services/encryption', () => ({
   getKeyForVideo: vi.fn().mockResolvedValue({ key: Buffer.from('aes-encryption-key') }),
 }));
 
@@ -32,7 +32,7 @@ import {
 } from '../../services/sync-service';
 import { sequelize } from '../../config/database';
 import { presignedGetUrl, minioClient } from '../../config/minio';
-import { getKeyForVideo } from '../../services/key-manager';
+import { getKeyForVideo } from '../../services/encryption';
 
 describe('Sync Service', () => {
   beforeEach(() => {

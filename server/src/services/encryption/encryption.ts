@@ -4,9 +4,9 @@ import path from 'path';
 import os from 'os';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
-import { minioClient } from '../config/minio';
-import { VideoModel } from '../models';
-import type { VideoAttributes } from '../models/video';
+import { minioClient } from '../../config/minio';
+import { VideoModel } from '../../models';
+import type { VideoAttributes } from '../../models/video';
 import { generateEncryptionKey, storeKey, KeyData } from './key-manager';
 
 const FFMPEG_PATH = process.env.FFMPEG_PATH || 'ffmpeg';

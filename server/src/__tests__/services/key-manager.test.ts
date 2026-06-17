@@ -15,7 +15,7 @@ import {
   decryptKey,
   storeKey,
   getKeyForVideo,
-} from '../../services/key-manager';
+} from '../../services/encryption/key-manager';
 import { VideoKeyModel } from '../../models';
 
 describe('Key Manager Service', () => {
@@ -53,7 +53,7 @@ describe('Key Manager Service', () => {
       // Change master key and re-import module
       process.env.MASTER_KEY = 'wrong-master-key-32bytes!!!';
       vi.resetModules();
-      const { decryptKey: decryptKeyWrong } = await import('../../services/key-manager');
+      const { decryptKey: decryptKeyWrong } = await import('../../services/encryption/key-manager');
 
       expect(() => decryptKeyWrong(encrypted, iv)).toThrow();
     });
