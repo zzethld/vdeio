@@ -6,6 +6,17 @@ import { VideoModel, CampaignModel, DeviceModel, CampaignVideoModel, sequelize }
 
 const router = Router();
 
+/**
+ * Shape of a raw row produced by the campaign-distribution aggregation below
+ * (Sequelize `findAll({ raw: true })` with a COUNT fn + nested Campaign include).
+ * `videoCount` is a string because MySQL/SQLite return aggregate values as strings.
+ */
+interface CampaignDistributionItem {
+  campaignId: number;
+  videoCount: string;
+  'campaign.title': string;
+}
+
 // Apply auth + admin middleware to all dashboard routes
 router.use(authMiddleware, adminAuthMiddleware);
 
@@ -53,7 +64,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
       raw: true,
     });
 
-    const formattedDistribution = (campaignDistribution as any[]).map((item: any) => ({
+    const formattedDistribution = (campaignDistribution as unknown as CampaignDistributionItem[]).map((item) => ({
       name: item['campaign.title'] || `活动 #${item.campaignId}`,
       value: parseInt(item.videoCount || '0', 10),
     }));
