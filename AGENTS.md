@@ -69,8 +69,7 @@ powershell -ExecutionPolicy Bypass -File .\e2e\video-upload-flow.ps1           #
 ```
 Requires server on `:3000` + Docker infra running. Default admin `admin`/`admin123`.
 Override URL: `$env:VDEIO_BASE_URL='http://host:3000/api/v1'`. Five flow scripts share
-`e2e/common.ps1` (`Invoke-ApiCall` is a real `Invoke-WebRequest` wrapper). Note: the e2e
-README's "skeleton scripts" disclaimer is stale — these scripts execute real calls.
+`e2e/common.ps1` (`Invoke-ApiCall` is a real `Invoke-WebRequest` wrapper).
 
 ## Architectural facts agents get wrong
 
@@ -114,9 +113,7 @@ README's "skeleton scripts" disclaimer is stale — these scripts execute real c
 ## Docs & tracking
 
 - **Authoritative:** `docs/技术说明.md`, `docs/部署文档.md`, `docs/MVP技术方案.md`.
-- The large Chinese design `.md` files at repo root (`技术架构方案.md`, `完整实施计划.md`,
-  `独立架构设计.md`, `低成本混合边缘节点方案.md`, `开发路线与测试方案.md`) describe a
-  **superseded** Widevine + Syncthing + ARM architecture. Do NOT follow them as instructions.
+- The repo root contains only `AGENTS.md` and `VERIFICATION_REPORT.md`.
 - `VERIFICATION_REPORT.md` (root) = test-status snapshot (413 tests / 37 endpoints / 4 Docker
   services). `.sisyphus/` = prior agent-session artifacts (plans/evidence/notepads) — safe to
   ignore unless resuming that work.
