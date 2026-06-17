@@ -6,6 +6,7 @@ import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { minioClient } from '../config/minio';
 import { VideoModel } from '../models';
+import type { VideoAttributes } from '../models/video';
 import { generateEncryptionKey, storeKey, KeyData } from './key-manager';
 
 const FFMPEG_PATH = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -152,13 +153,13 @@ export interface ProcessQueueOptions {
 export async function processQueue(options: ProcessQueueOptions = {}): Promise<void> {
   const { startup = false, limit } = options;
 
-  const statuses: string[] = startup
+  const statuses: Array<VideoAttributes['encryptStatus']> = startup
     ? ['pending']
     : ['pending', 'failed', 'encrypting'];
 
   const videos = await VideoModel.findAll({
     where: {
-      encryptStatus: statuses as any,
+      encryptStatus: statuses,
     },
     order: [['createdAt', 'ASC']],
     ...(limit ? { limit } : {}),
