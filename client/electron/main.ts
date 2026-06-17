@@ -6,7 +6,6 @@ import {
 } from 'electron';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { initUpdater } from './updater.js';
 import { SyncService } from './sync-service.js';
 import { MqttBridge } from './mqtt-bridge.js';
 
@@ -162,11 +161,6 @@ app.whenReady().then(() => {
 
   registerIpcHandlers();
   createWindow();
-
-  // Initialize auto-updater (stub for now)
-  if (mainWindow) {
-    initUpdater(mainWindow);
-  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
