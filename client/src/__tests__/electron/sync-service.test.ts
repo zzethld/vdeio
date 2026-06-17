@@ -320,13 +320,18 @@ describe('SyncService', () => {
       files['/data/vdeio/videos/20'] = { atime: Date.now() - 5000 } as unknown as Buffer;
       files['/data/vdeio/videos/30'] = { atime: Date.now() } as unknown as Buffer;
 
+      const highUsageStdout =
+        process.platform === 'win32'
+          ? 'FreeSpace=5000000000\nSize=100000000000\n'
+          : 'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 95000000   5000000  95% /\n';
+
       // First check: 95% -> eviction path
-      execQueue.push({ stdout: 'FreeSpace=5000000000\nSize=100000000000\n' });
+      execQueue.push({ stdout: highUsageStdout });
       // Eviction loop checks usage for each evictable directory
-      execQueue.push({ stdout: 'FreeSpace=5000000000\nSize=100000000000\n' });
-      execQueue.push({ stdout: 'FreeSpace=5000000000\nSize=100000000000\n' });
+      execQueue.push({ stdout: highUsageStdout });
+      execQueue.push({ stdout: highUsageStdout });
       // Final check still 95%
-      execQueue.push({ stdout: 'FreeSpace=5000000000\nSize=100000000000\n' });
+      execQueue.push({ stdout: highUsageStdout });
 
       const service = new SyncService('/data/vdeio');
       const ok = await (service as unknown as { checkDiskSpace: (downloads: unknown[]) => Promise<boolean> }).checkDiskSpace([
@@ -337,7 +342,11 @@ describe('SyncService', () => {
     });
 
     it('warns when disk usage is above 85% but still allows download', async () => {
-      execQueue.push({ stdout: 'FreeSpace=12000000000\nSize=100000000000\n' }); // 88% used
+      const warnStdout =
+        process.platform === 'win32'
+          ? 'FreeSpace=12000000000\nSize=100000000000\n'
+          : 'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 88000000   12000000  88% /\n';
+      execQueue.push({ stdout: warnStdout }); // 88% used
 
       const service = new SyncService('/data/vdeio');
       service.setMainWindow({
