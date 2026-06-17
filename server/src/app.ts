@@ -17,6 +17,7 @@ import { checkExpiredCampaigns } from './services/campaign';
 import { startAlertScheduler } from './services/alert';
 import { startTelemetrySubscriber } from './services/device-monitor';
 import { processQueue } from './services/encryption';
+import { resolveErrorStatusCode } from './utils/app-error';
 
 dotenv.config();
 
@@ -78,7 +79,7 @@ app.use((_req: Request, res: Response) => {
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
 
-  const statusCode = (err as any).statusCode || 500;
+  const statusCode = resolveErrorStatusCode(err);
   const message = err.message || 'Internal server error';
 
   res.status(statusCode).json({
