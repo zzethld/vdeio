@@ -1,4 +1,6 @@
-import { DataTypes, Model, Optional, InferAttributes, InferCreationAttributes, CreationOptional, Sequelize } from 'sequelize';
+import { DataTypes, Model, Optional, InferAttributes, InferCreationAttributes, CreationOptional, NonAttribute, Sequelize } from 'sequelize';
+import type { Video } from './video';
+import type { Store } from './store';
 
 export interface CampaignAttributes {
   id: number;
@@ -24,6 +26,13 @@ export class Campaign extends Model<InferAttributes<Campaign>, InferCreationAttr
   declare createdBy: number | null;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
+
+  // Eager-loaded associations (declared via setupAssociations in models/index.ts).
+  // Typed as NonAttribute so InferAttributes/InferCreationAttributes exclude them
+  // (they are not model columns). Optional because they are only present when
+  // the query uses `include: [{ model, as: '...' }]`.
+  declare videos?: NonAttribute<Video[]>;
+  declare campaignStores?: NonAttribute<Store[]>;
 }
 
 export function createModel(sequelize: Sequelize): typeof Campaign {

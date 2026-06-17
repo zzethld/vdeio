@@ -216,13 +216,13 @@ export async function publishCampaign(campaignId: number): Promise<Campaign> {
   }
 
   // Must have videos
-  const videos = (campaign as any).videos ?? [];
+  const videos = campaign.videos ?? [];
   if (!videos || videos.length === 0) {
     throw new Error('Campaign must have at least one video');
   }
 
   // Must have stores
-  const stores = (campaign as any).campaignStores ?? [];
+  const stores = campaign.campaignStores ?? [];
   if (!stores || stores.length === 0) {
     throw new Error('Campaign must have at least one store');
   }
@@ -237,7 +237,7 @@ export async function publishCampaign(campaignId: number): Promise<Campaign> {
   await campaign.update({ status: 'active' });
 
   // Notify stores via MQTT
-  const storeIds = stores.map((s: any) => s.id as number);
+  const storeIds = stores.map((s) => s.id);
   await notifyStoreSync(storeIds, campaignId, 'campaign_published');
 
   return campaign;
@@ -258,8 +258,8 @@ export async function endCampaign(campaignId: number): Promise<Campaign> {
 
   await campaign.update({ status: 'ended' });
 
-  const stores = (campaign as any).campaignStores ?? [];
-  const storeIds = stores.map((s: any) => s.id as number);
+  const stores = campaign.campaignStores ?? [];
+  const storeIds = stores.map((s) => s.id);
   await notifyCampaignExpired(campaignId, storeIds);
 
   return campaign;
@@ -277,8 +277,8 @@ export async function checkExpiredCampaigns(): Promise<number> {
   for (const campaign of expiredCampaigns) {
     await campaign.update({ status: 'ended' });
 
-    const stores = (campaign as any).campaignStores ?? [];
-    const storeIds = stores.map((s: any) => s.id as number);
+    const stores = campaign.campaignStores ?? [];
+    const storeIds = stores.map((s) => s.id);
     await notifyCampaignExpired(campaign.id, storeIds);
   }
 
