@@ -1,8 +1,20 @@
 import { sequelize } from '../config/database';
 import { QueryTypes } from 'sequelize';
-import { VideoModel, VideoKeyModel } from '../models';
+import { VideoModel, VideoKeyModel, VideoAccessCodeModel } from '../models';
 import { presignedGetUrl } from '../config/minio';
 import { getKeyForVideo } from './encryption';
+
+/** Download instruction returned by calculateSyncDiff. */
+export interface VideoDownload {
+  videoId: number;
+  title: string;
+  fileSize: number;
+  campaignId: number;
+  playlistUrl: string;
+  accessMode: 'open' | 'campaign' | 'code';
+  offlineAllowed: boolean;
+  keyTtlHours: number;
+}
 
 /** Row shape produced by the calculateSyncDiff raw SELECT. */
 interface ShouldCacheRow {
@@ -11,6 +23,9 @@ interface ShouldCacheRow {
   file_size: number;
   hls_url: string;
   campaign_id: number;
+  access_mode: 'open' | 'campaign' | 'code';
+  offline_allowed: number;
+  key_ttl_hours: number;
 }
 
 /** Row shape produced by the getAuthorizedVideos raw SELECT. */
@@ -32,10 +47,14 @@ interface CountRow {
   cnt: number;
 }
 
-export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[]) {
+export async function calculateSyncDiff(
+  storeId: number,
+  cachedVideoIds: number[]
+): Promise<{ downloads: VideoDownload[]; deletes: { videoId: number }[] }> {
   // 1. Query videos that should be cached
   const shouldCache = await sequelize.query<ShouldCacheRow>(
-    `SELECT DISTINCT v.id, v.title, v.file_size, v.hls_url, cv.campaign_id
+    `SELECT DISTINCT v.id, v.title, v.file_size, v.hls_url, cv.campaign_id,
+            v.access_mode, v.offline_allowed, v.key_ttl_hours
      FROM videos v
      JOIN campaign_videos cv ON v.id = cv.video_id
      JOIN campaigns c ON cv.campaign_id = c.id
@@ -44,7 +63,8 @@ export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[
        AND c.status = 'active'
        AND NOW() BETWEEN c.start_time AND c.end_time
        AND v.deleted_at IS NULL
-       AND v.encrypt_status = 'done'`,
+       AND v.encrypt_status = 'done'
+       AND v.offline_allowed = 1`,
     { replacements: [storeId], type: QueryTypes.SELECT }
   );
 
@@ -60,6 +80,9 @@ export async function calculateSyncDiff(storeId: number, cachedVideoIds: number[
       fileSize: v.file_size,
       campaignId: v.campaign_id,
       playlistUrl: `videos/${v.id}/playlist.m3u8`, // Client will request via auth endpoint
+      accessMode: v.access_mode,
+      offlineAllowed: v.offline_allowed === 1,
+      keyTtlHours: v.key_ttl_hours,
     }));
 
   const deletes = cachedVideoIds
@@ -112,6 +135,38 @@ export async function isVideoAuthorizedForStore(videoId: number, storeId: number
     { replacements: [videoId, storeId], type: QueryTypes.SELECT }
   );
   return result[0].cnt > 0;
+}
+
+async function validateAccessCode(code: string, videoId: number, storeId: number): Promise<boolean> {
+  const record = await VideoAccessCodeModel.findOne({
+    where: { code, videoId, status: 'active' },
+  });
+
+  if (!record) return false;
+  if (record.storeId !== null && record.storeId !== storeId) return false;
+  if (record.expiresAt && record.expiresAt < new Date()) return false;
+  if (record.maxUses !== null && record.useCount >= record.maxUses) return false;
+
+  return true;
+}
+
+export async function isVideoAuthorized(videoId: number, storeId: number, code?: string): Promise<boolean> {
+  const video = await VideoModel.findByPk(videoId, {
+    attributes: ['id', 'accessMode'],
+  });
+
+  if (!video) return false;
+
+  switch (video.accessMode) {
+    case 'open':
+      return true;
+    case 'campaign':
+      return isVideoAuthorizedForStore(videoId, storeId);
+    case 'code':
+      return code ? validateAccessCode(code, videoId, storeId) : false;
+    default:
+      return false;
+  }
 }
 
 export async function getVideoPlaylist(videoId: number): Promise<string> {

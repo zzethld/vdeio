@@ -7,8 +7,9 @@ vi.mock('../../config/database', () => ({
 }));
 
 vi.mock('../../models', () => ({
-  VideoModel: {},
+  VideoModel: { findByPk: vi.fn() },
   VideoKeyModel: {},
+  VideoAccessCodeModel: { findOne: vi.fn() },
 }));
 
 vi.mock('../../config/minio', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../services/encryption', () => ({
 
 import {
   calculateSyncDiff,
+  isVideoAuthorized,
   isVideoAuthorizedForStore,
   getVideoPlaylist,
   getVideoKey,
@@ -31,6 +33,7 @@ import {
   getAuthorizedVideos,
 } from '../../services/sync-service';
 import { sequelize } from '../../config/database';
+import { VideoModel, VideoAccessCodeModel } from '../../models';
 import { presignedGetUrl, minioClient } from '../../config/minio';
 import { getKeyForVideo } from '../../services/encryption';
 
@@ -48,6 +51,9 @@ describe('Sync Service', () => {
           file_size: 5000000,
           hls_url: 'http://example.com/video1.m3u8',
           campaign_id: 1,
+          access_mode: 'campaign',
+          offline_allowed: 1,
+          key_ttl_hours: 168,
         },
       ]);
 
@@ -82,6 +88,9 @@ describe('Sync Service', () => {
           file_size: 3000000,
           hls_url: 'http://example.com/video1.m3u8',
           campaign_id: 1,
+          access_mode: 'campaign',
+          offline_allowed: 1,
+          key_ttl_hours: 168,
         },
       ]);
 
@@ -99,6 +108,9 @@ describe('Sync Service', () => {
           file_size: 4000000,
           hls_url: 'http://example.com/video2.m3u8',
           campaign_id: 1,
+          access_mode: 'campaign',
+          offline_allowed: 1,
+          key_ttl_hours: 168,
         },
       ]);
 
@@ -119,6 +131,9 @@ describe('Sync Service', () => {
           file_size: 6000000,
           hls_url: 'http://example.com/video3.m3u8',
           campaign_id: 2,
+          access_mode: 'campaign',
+          offline_allowed: 1,
+          key_ttl_hours: 168,
         },
       ]);
 
@@ -127,6 +142,40 @@ describe('Sync Service', () => {
       expect(result.downloads).toHaveLength(1);
       expect(result.downloads[0].videoId).toBe(3);
       expect(result.deletes).toHaveLength(2);
+    });
+
+    it('maps access_mode, offline_allowed, and key_ttl_hours onto downloads', async () => {
+      (sequelize.query as any).mockResolvedValue([
+        {
+          id: 10,
+          title: 'Policy Video',
+          file_size: 8000000,
+          hls_url: 'http://example.com/video10.m3u8',
+          campaign_id: 3,
+          access_mode: 'open',
+          offline_allowed: 1,
+          key_ttl_hours: 48,
+        },
+      ]);
+
+      const result = await calculateSyncDiff(1, []);
+
+      expect(result.downloads[0]).toMatchObject({
+        accessMode: 'open',
+        offlineAllowed: true,
+        keyTtlHours: 48,
+      });
+    });
+
+    it('filters out offline-disabled videos at the SQL level', async () => {
+      (sequelize.query as any).mockResolvedValue([]);
+
+      await calculateSyncDiff(1, []);
+
+      expect(sequelize.query).toHaveBeenCalledWith(
+        expect.stringContaining('AND v.offline_allowed = 1'),
+        expect.any(Object)
+      );
     });
   });
 
@@ -155,6 +204,125 @@ describe('Sync Service', () => {
       (sequelize.query as any).mockResolvedValue([{ cnt: 0 }]);
 
       const result = await isVideoAuthorizedForStore(99, 99);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('isVideoAuthorized', () => {
+    it('returns true for open access mode without checking campaigns or codes', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'open' });
+
+      const result = await isVideoAuthorized(1, 1);
+
+      expect(result).toBe(true);
+      expect(sequelize.query).not.toHaveBeenCalled();
+      expect(VideoAccessCodeModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('delegates to isVideoAuthorizedForStore for campaign access mode', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'campaign' });
+      (sequelize.query as any).mockResolvedValue([{ cnt: 1 }]);
+
+      const result = await isVideoAuthorized(7, 5);
+
+      expect(result).toBe(true);
+      expect(sequelize.query).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT COUNT(*) as cnt'),
+        expect.objectContaining({ replacements: [7, 5] })
+      );
+    });
+
+    it('returns false for campaign access mode when store is not authorized', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'campaign' });
+      (sequelize.query as any).mockResolvedValue([{ cnt: 0 }]);
+
+      const result = await isVideoAuthorized(7, 5);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns true for code access mode with a valid active code', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+      (VideoAccessCodeModel.findOne as any).mockResolvedValue({
+        storeId: null,
+        expiresAt: null,
+        maxUses: null,
+        useCount: 0,
+      });
+
+      const result = await isVideoAuthorized(3, 2, 'PROMO123');
+
+      expect(result).toBe(true);
+      expect(VideoAccessCodeModel.findOne).toHaveBeenCalledWith({
+        where: { code: 'PROMO123', videoId: 3, status: 'active' },
+      });
+    });
+
+    it('returns false for code access mode when no code is provided', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+
+      const result = await isVideoAuthorized(3, 2);
+
+      expect(result).toBe(false);
+      expect(VideoAccessCodeModel.findOne).not.toHaveBeenCalled();
+    });
+
+    it('returns false for code access mode when code is not found', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+      (VideoAccessCodeModel.findOne as any).mockResolvedValue(null);
+
+      const result = await isVideoAuthorized(3, 2, 'MISSING');
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when store-scoped code is used for a different store', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+      (VideoAccessCodeModel.findOne as any).mockResolvedValue({
+        storeId: 9,
+        expiresAt: null,
+        maxUses: null,
+        useCount: 0,
+      });
+
+      const result = await isVideoAuthorized(3, 2, 'STORE9');
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when active code has reached max uses', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+      (VideoAccessCodeModel.findOne as any).mockResolvedValue({
+        storeId: null,
+        expiresAt: null,
+        maxUses: 5,
+        useCount: 5,
+      });
+
+      const result = await isVideoAuthorized(3, 2, 'MAXED');
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when code has expired', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue({ accessMode: 'code' });
+      (VideoAccessCodeModel.findOne as any).mockResolvedValue({
+        storeId: null,
+        expiresAt: new Date(Date.now() - 86400000),
+        maxUses: null,
+        useCount: 0,
+      });
+
+      const result = await isVideoAuthorized(3, 2, 'OLD');
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when video does not exist', async () => {
+      (VideoModel.findByPk as any).mockResolvedValue(null);
+
+      const result = await isVideoAuthorized(999, 1);
 
       expect(result).toBe(false);
     });

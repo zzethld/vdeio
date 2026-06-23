@@ -259,6 +259,86 @@ describe('Video Management Routes', () => {
 
       expect(res.status).toBe(400);
     });
+
+    it('should update encryption policy fields (accessMode, offlineAllowed, keyTtlHours)', async () => {
+      const video = await createVideo({ title: 'Policy Video' });
+
+      const res = await request(app)
+        .put(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ accessMode: 'code', offlineAllowed: false, keyTtlHours: 0 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.accessMode).toBe('code');
+      expect(res.body.offlineAllowed).toBe(false);
+      expect(res.body.keyTtlHours).toBe(0);
+
+      // Verify persistence: re-fetch and confirm values survived the round-trip.
+      const refetch = await request(app)
+        .get(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(refetch.status).toBe(200);
+      expect(refetch.body.accessMode).toBe('code');
+      expect(refetch.body.offlineAllowed).toBe(false);
+      expect(refetch.body.keyTtlHours).toBe(0);
+    });
+
+    it('should leave unspecified policy fields unchanged when only some are sent', async () => {
+      // Only update accessMode — offlineAllowed and keyTtlHours must keep their
+      // current values rather than being reset to defaults.
+      const video = await createVideo({
+        title: 'Partial Video',
+        offlineAllowed: false,
+        keyTtlHours: 24,
+      });
+
+      const res = await request(app)
+        .put(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ accessMode: 'open' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.accessMode).toBe('open');
+      expect(res.body.offlineAllowed).toBe(false);
+      expect(res.body.keyTtlHours).toBe(24);
+    });
+
+    it('should return 400 for an invalid accessMode value', async () => {
+      const video = await createVideo({ title: 'Bad Mode Video' });
+
+      const res = await request(app)
+        .put(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ accessMode: 'secret' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('accessMode');
+    });
+
+    it('should return 400 for a negative keyTtlHours', async () => {
+      const video = await createVideo({ title: 'Bad TTL Video' });
+
+      const res = await request(app)
+        .put(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ keyTtlHours: -1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('keyTtlHours');
+    });
+
+    it('should return 400 for a non-integer keyTtlHours', async () => {
+      const video = await createVideo({ title: 'Fractional TTL Video' });
+
+      const res = await request(app)
+        .put(`/api/v1/admin/videos/${video.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ keyTtlHours: 1.5 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('keyTtlHours');
+    });
   });
 
   describe('DELETE /api/v1/admin/videos/:id', () => {

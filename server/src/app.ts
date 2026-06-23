@@ -12,6 +12,7 @@ import adminVideoRoutes from './routes/admin/video';
 import adminDeviceRoutes, { webhookRouter as emqxWebhookRoutes } from './routes/admin/device';
 import adminDashboardRoutes from './routes/admin/dashboard';
 import adminStoreRoutes from './routes/admin/store';
+import adminAccessCodeRoutes from './routes/admin/accessCode';
 import deviceRoutes from './routes/device';
 import { checkExpiredCampaigns } from './services/campaign';
 import { startAlertScheduler } from './services/alert';
@@ -64,6 +65,7 @@ app.use('/api/v1/admin/videos', adminVideoRoutes);
 app.use('/api/v1/admin/devices', adminDeviceRoutes);
 app.use('/api/v1/admin/dashboard', adminDashboardRoutes);
 app.use('/api/v1/admin/stores', adminStoreRoutes);
+app.use('/api/v1/admin', adminAccessCodeRoutes);
 app.use('/api/v1/webhooks/emqx', emqxWebhookRoutes);
 app.use('/api/v1/devices', deviceRoutes);
 

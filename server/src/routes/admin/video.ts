@@ -181,8 +181,69 @@ router.put('/:id', async (req: Request, res: Response) => {
       return;
     }
 
-    const { title, description, categoryId } = req.body;
-    await video.update({ title, description, categoryId });
+    const { title, description, categoryId, accessMode, offlineAllowed, keyTtlHours } = req.body;
+
+    // Validate encryption policy fields when provided.
+    const ALLOWED_ACCESS_MODES = ['open', 'campaign', 'code'] as const;
+    if (accessMode !== undefined && !ALLOWED_ACCESS_MODES.includes(accessMode)) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: `accessMode must be one of: ${ALLOWED_ACCESS_MODES.join(', ')}`,
+      });
+      return;
+    }
+    if (keyTtlHours !== undefined) {
+      // Coerce strings like "12" to numbers; reject anything that isn't a
+      // non-negative integer after coercion.
+      const coercedTtl = typeof keyTtlHours === 'string' ? Number(keyTtlHours) : keyTtlHours;
+      if (
+        typeof coercedTtl !== 'number' ||
+        !Number.isFinite(coercedTtl) ||
+        !Number.isInteger(coercedTtl) ||
+        coercedTtl < 0
+      ) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'keyTtlHours must be a non-negative integer',
+        });
+        return;
+      }
+    }
+    // Normalize offlineAllowed: accept actual booleans, or the strings
+    // "true"/"false". Anything else is a client error.
+    let normalizedOfflineAllowed: boolean | undefined;
+    if (offlineAllowed !== undefined) {
+      if (typeof offlineAllowed === 'boolean') {
+        normalizedOfflineAllowed = offlineAllowed;
+      } else if (offlineAllowed === 'true') {
+        normalizedOfflineAllowed = true;
+      } else if (offlineAllowed === 'false') {
+        normalizedOfflineAllowed = false;
+      } else {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'offlineAllowed must be a boolean',
+        });
+        return;
+      }
+    }
+
+    // Build the updates object with only defined fields — Sequelize skips
+    // undefined, but being explicit avoids accidental nulling of fields the
+    // client did not send.
+    const updates: Record<string, unknown> = {};
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (categoryId !== undefined) updates.categoryId = categoryId;
+    if (accessMode !== undefined) updates.accessMode = accessMode;
+    if (offlineAllowed !== undefined) updates.offlineAllowed = normalizedOfflineAllowed;
+    if (keyTtlHours !== undefined) {
+      // Store as a number in case the client sent a numeric string.
+      updates.keyTtlHours =
+        typeof keyTtlHours === 'string' ? Number(keyTtlHours) : keyTtlHours;
+    }
+
+    await video.update(updates);
     res.json(video);
   } catch (err) {
     console.error('Update video error:', err);
