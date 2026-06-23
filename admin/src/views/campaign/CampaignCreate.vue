@@ -29,7 +29,7 @@ const saving = ref(false);
 const form = reactive({
   title: '',
   description: '',
-  timeRange: [] as Date[],
+  timeRange: [] as (Date | string)[],
   selectedVideoIds: [] as number[],
   selectedStoreIds: [] as number[],
 });
@@ -104,8 +104,14 @@ async function handleSave() {
     const payload = {
       title: form.title,
       description: form.description,
-      startTime: form.timeRange[0].toISOString(),
-      endTime: form.timeRange[1].toISOString(),
+      startTime:
+        form.timeRange[0] instanceof Date
+          ? form.timeRange[0].toISOString()
+          : form.timeRange[0],
+      endTime:
+        form.timeRange[1] instanceof Date
+          ? form.timeRange[1].toISOString()
+          : form.timeRange[1],
     };
 
     if (isEdit.value) {

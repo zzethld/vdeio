@@ -221,6 +221,56 @@ describe('CampaignCreate View', () => {
 
       expect(messageMocks.ElMessage.warning).toHaveBeenCalledWith('请至少选择一个视频');
     });
+
+    it('creates campaign when timeRange values are strings (value-format)', async () => {
+      formStub.setValidity(true);
+      requestMocks.get.mockResolvedValue({ data: { rows: mockVideos, count: 2 } });
+      requestMocks.post.mockImplementation(async (url: string) => {
+        if (url === '/admin/campaigns') return { data: { id: 42 } };
+        return { data: {} };
+      });
+
+      const wrapper = mountCreate();
+      await flushPromises();
+
+      // Drive selections and fields through component state
+      const vm = wrapper.vm as unknown as {
+        form: {
+          title: string;
+          description: string;
+          timeRange: string[];
+          selectedVideoIds: number[];
+          selectedStoreIds: number[];
+        };
+      };
+      vm.form.title = 'String Time Campaign';
+      vm.form.description = '';
+      vm.form.timeRange = ['2026-06-18T10:00:00', '2026-06-25T10:00:00'];
+      vm.form.selectedVideoIds = [1, 2];
+      vm.form.selectedStoreIds = [1, 2];
+      await flushPromises();
+
+      const saveBtn = wrapper
+        .findAll('button.el-button-stub')
+        .find((b) => b.text().includes('保存'));
+      await saveBtn?.trigger('click');
+      await flushPromises();
+
+      expect(requestMocks.post).toHaveBeenCalledWith('/admin/campaigns', {
+        title: 'String Time Campaign',
+        description: '',
+        startTime: '2026-06-18T10:00:00',
+        endTime: '2026-06-25T10:00:00',
+      });
+      expect(requestMocks.post).toHaveBeenCalledWith('/admin/campaigns/42/videos', {
+        videoIds: [1, 2],
+      });
+      expect(requestMocks.post).toHaveBeenCalledWith('/admin/campaigns/42/stores', {
+        storeIds: [1, 2],
+      });
+      expect(messageMocks.ElMessage.success).toHaveBeenCalledWith('创建成功');
+      expect(routerMocks.push).toHaveBeenCalledWith('/campaigns');
+    });
   });
 
   describe('navigation', () => {

@@ -41,6 +41,10 @@ const router = createRouter({
 
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore();
+  // Ensure tokens loaded from localStorage before guard checks auth state.
+  // This prevents redirect to login on a hard refresh when the store was
+  // created before the persisted auth state had been read.
+  authStore.loadFromStorage();
   const requiresAuth = to.matched.some((r) => r.meta.requiresAuth !== false);
 
   if (requiresAuth && !authStore.isLoggedIn) {

@@ -7,15 +7,15 @@
     </header>
     <main class="player-content">
       <!-- Loading overlay -->
-      <div v-if="player.loading" class="player-overlay">
+      <div v-if="loading" class="player-overlay">
         <span class="spinner"></span>
         <span>加载视频中...</span>
       </div>
 
       <!-- Error state -->
-      <div v-else-if="player.error" class="player-overlay error-overlay">
-        <p class="error-msg">{{ player.error }}</p>
-        <button class="btn-retry" @click="player.retry()">重试</button>
+      <div v-else-if="error" class="player-overlay error-overlay">
+        <p class="error-msg">{{ error }}</p>
+        <button class="btn-retry" @click="retry()">重试</button>
       </div>
 
       <!-- Video element -->
@@ -40,21 +40,21 @@ const router = useRouter();
 const videoId = computed(() => Number(route.params.id));
 const displayTitle = computed(() => {
   const queryTitle = route.query.title as string | undefined;
-  return player.videoTitle.value || queryTitle || '视频播放';
+  return videoTitle.value || queryTitle || '视频播放';
 });
 
 const videoEl = ref<HTMLVideoElement | null>(null);
-const player = usePlayer();
+const { loading, error, videoTitle, initPlayer, destroy, retry } = usePlayer();
 
 function goBack(): void {
-  player.destroy().then(() => {
+  destroy().then(() => {
     router.push('/');
   });
 }
 
 onMounted(() => {
   if (videoEl.value && videoId.value) {
-    player.initPlayer(videoEl.value, videoId.value);
+    initPlayer(videoEl.value, videoId.value);
   }
 });
 </script>

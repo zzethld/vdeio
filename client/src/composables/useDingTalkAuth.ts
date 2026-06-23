@@ -15,6 +15,7 @@ interface PollSuccessResult {
     role: string;
   };
   storeId: number | null;
+  deviceId?: string;
 }
 
 export function useDingTalkAuth() {
@@ -78,9 +79,13 @@ export function useDingTalkAuth() {
       return;
     }
 
-    // Auto-register and bind device if not already registered
+    // Auto-register and bind device if not already registered.
+    // In mock mode the server already provides a deviceId, so reuse it
+    // instead of creating a new device that would conflict on store binding.
     const storedDeviceId = localStorage.getItem('deviceId');
-    if (!storedDeviceId) {
+    if (data.deviceId) {
+      localStorage.setItem('deviceId', data.deviceId);
+    } else if (!storedDeviceId) {
       try {
         const regRes = await request.post('/devices/register', {
           deviceName: navigator.userAgent.substring(0, 128),
@@ -91,10 +96,17 @@ export function useDingTalkAuth() {
         localStorage.setItem('deviceToken', deviceToken);
 
         // Bind device to store
-        await request.post('/devices/bind', {
-          storeId: data.storeId,
-          deviceId,
-        });
+        try {
+          await request.post('/devices/bind', {
+            storeId: data.storeId,
+            deviceId,
+          });
+        } catch (err) {
+          console.warn('[Auth] Device bind failed:', err);
+          error.value = '设备绑定门店失败，该门店可能已绑定其他设备';
+          authStore.logout();
+          return;
+        }
       } catch (err) {
         console.warn('[Auth] Device registration failed:', err);
       }
