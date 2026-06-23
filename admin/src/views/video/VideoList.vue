@@ -11,6 +11,9 @@ interface Video {
   encryptStatus: 'pending' | 'encrypting' | 'done' | 'failed';
   createdAt: string;
   resolution: string | null;
+  accessMode: 'open' | 'campaign' | 'code';
+  offlineAllowed: boolean;
+  keyTtlHours: number;
 }
 
 const router = useRouter();
@@ -31,6 +34,12 @@ const encryptStatusMap: Record<string, { label: string; type: '' | 'success' | '
   encrypting: { label: '加密中', type: 'warning' },
   done: { label: '已完成', type: 'success' },
   failed: { label: '加密失败', type: 'danger' },
+};
+
+const accessModeMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
+  open: { label: '开放', type: 'success' },
+  campaign: { label: '活动推送', type: 'warning' },
+  code: { label: '序列号', type: 'danger' },
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -83,6 +92,10 @@ function handleSizeChange(size: number) {
 
 function handleUpload() {
   router.push('/videos/upload');
+}
+
+function handleEdit(row: Video) {
+  router.push('/videos/edit/' + row.id);
 }
 
 async function handleDelete(row: Video) {
@@ -162,13 +175,24 @@ onMounted(fetchVideos);
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="访问策略" width="110">
+        <template #default="{ row }">
+          <el-tag
+            :type="accessModeMap[row.accessMode]?.type || 'info'"
+            size="small"
+          >
+            {{ accessModeMap[row.accessMode]?.label || row.accessMode || '-' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="创建时间" width="180">
         <template #default="{ row }">
           {{ formatDate(row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
+          <el-button type="primary" text size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" text size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>

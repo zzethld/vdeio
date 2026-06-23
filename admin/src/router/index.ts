@@ -10,6 +10,7 @@ const NotFound = () => import('@/views/NotFound.vue');
 // Video views
 const VideoList = () => import('@/views/video/VideoList.vue');
 const VideoUpload = () => import('@/views/video/VideoUpload.vue');
+const VideoEdit = () => import('@/views/video/VideoEdit.vue');
 
 // Campaign views
 const CampaignList = () => import('@/views/campaign/CampaignList.vue');
@@ -46,6 +47,12 @@ const routes: RouteRecordRaw[] = [
         name: 'VideoUpload',
         component: VideoUpload,
         meta: { title: '上传视频' },
+      },
+      {
+        path: 'videos/edit/:id',
+        name: 'VideoEdit',
+        component: VideoEdit,
+        meta: { title: '编辑视频' },
       },
       {
         path: 'campaigns',

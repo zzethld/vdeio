@@ -191,6 +191,10 @@ export const commonStubs: Record<string, Component> = {
   ElCheckboxGroup: passthroughStub('ElCheckboxGroup'),
   ElSwitch: passthroughStub('ElSwitch'),
   ElTooltip: passthroughStub('ElTooltip'),
+  ElDivider: passthroughStub('ElDivider'),
+  ElInputNumber: passthroughStub('ElInputNumber'),
+  ElTabs: passthroughStub('ElTabs'),
+  ElTabPane: passthroughStub('ElTabPane'),
   ElEmpty: defineComponent({
     name: 'ElEmpty',
     props: { description: String, imageSize: Number },

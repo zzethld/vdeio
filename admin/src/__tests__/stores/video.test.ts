@@ -154,6 +154,86 @@ describe('Video Store', () => {
     });
   });
 
+  describe('fetchById', () => {
+    it('should call GET /admin/videos/:id and store as current', async () => {
+      const mockVideo = {
+        id: 7,
+        title: 'Detail Video',
+        fileSize: 2048,
+        encryptStatus: 'done' as const,
+        createdAt: '2025-03-01T00:00:00Z',
+        resolution: '720p',
+        accessMode: 'code' as const,
+        offlineAllowed: false,
+        keyTtlHours: 12,
+      };
+      vi.mocked(request.get).mockResolvedValue({ data: mockVideo });
+      const store = useVideoStore();
+
+      const result = await store.fetchById(7);
+
+      expect(request.get).toHaveBeenCalledWith('/admin/videos/7');
+      expect(result).toEqual(mockVideo);
+      expect(store.current).toEqual(mockVideo);
+    });
+
+    it('should set loading true while fetching then false', async () => {
+      let resolveFn!: (v: { data: unknown }) => void;
+      vi.mocked(request.get).mockReturnValue(
+        new Promise((res) => {
+          resolveFn = res as typeof resolveFn;
+        }),
+      );
+      const store = useVideoStore();
+
+      const promise = store.fetchById(5);
+      expect(store.loading).toBe(true);
+
+      resolveFn({ data: { id: 5 } });
+      await promise;
+
+      expect(store.loading).toBe(false);
+    });
+
+    it('should set error and rethrow on failure', async () => {
+      vi.mocked(request.get).mockRejectedValue(new Error('not found'));
+      const store = useVideoStore();
+
+      await expect(store.fetchById(99)).rejects.toThrow('not found');
+
+      expect(store.error).toBe('获取视频失败');
+      expect(store.loading).toBe(false);
+    });
+  });
+
+  describe('update', () => {
+    it('should call PUT /admin/videos/:id with policy payload', async () => {
+      vi.mocked(request.put).mockResolvedValue({} as never);
+      const store = useVideoStore();
+
+      await store.update(42, {
+        accessMode: 'code',
+        offlineAllowed: false,
+        keyTtlHours: 0,
+      });
+
+      expect(request.put).toHaveBeenCalledWith('/admin/videos/42', {
+        accessMode: 'code',
+        offlineAllowed: false,
+        keyTtlHours: 0,
+      });
+    });
+
+    it('should propagate update errors', async () => {
+      vi.mocked(request.put).mockRejectedValue(new Error('validation'));
+      const store = useVideoStore();
+
+      await expect(
+        store.update(1, { accessMode: 'open' }),
+      ).rejects.toThrow('validation');
+    });
+  });
+
   describe('reset', () => {
     it('should clear all state', async () => {
       vi.mocked(request.get).mockResolvedValue({
