@@ -39,7 +39,7 @@ vi.mock('shaka-player/dist/shaka-player.compiled', () => ({
 vi.mock('@/utils/request', () => {
   const get = vi.fn().mockImplementation((url: string) => {
     if (url.includes('/playlist')) {
-      return Promise.resolve({ data: { url: 'https://example.com/playlist.m3u8', title: 'Test Video' } });
+      return Promise.resolve({ data: { url: 'https://example.com/playlist.m3u8', title: 'Test Video', keyTtlHours: 168, offlineAllowed: true, accessMode: 'campaign' } });
     }
     if (url.includes('/key')) {
       return Promise.resolve({ data: new ArrayBuffer(16) });
@@ -217,6 +217,38 @@ describe('usePlayer', () => {
     await filterCallback(2, response);
 
     expect(request.get).toHaveBeenCalledWith('/devices/videos/789/key', { responseType: 'arraybuffer' });
+  });
+
+  it('does not cache key when ttlHours is 0', async () => {
+    const requestGet = request.get as Mock;
+    requestGet.mockImplementation((url: string) => {
+      if (url.includes('/playlist')) {
+        return Promise.resolve({
+          data: {
+            url: 'https://example.com/playlist.m3u8',
+            title: 'Test Video',
+            keyTtlHours: 0,
+            offlineAllowed: true,
+            accessMode: 'campaign',
+          },
+        });
+      }
+      if (url.includes('/key')) {
+        return Promise.resolve({ data: new ArrayBuffer(16) });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const player = withPlayer();
+    const videoEl = createVideoElement();
+    await player.initPlayer(videoEl, 789);
+    const filterCallback = mockRegisterResponseFilter.mock.calls[0][0];
+
+    const response = { data: new ArrayBuffer(0), headers: {} };
+    await filterCallback(2, response);
+
+    expect(requestGet).toHaveBeenCalledWith('/devices/videos/789/key', { responseType: 'arraybuffer' });
+    expect(localStorage.getItem('video:key:789')).toBeNull();
   });
 
   it('retry re-initializes player after error', async () => {

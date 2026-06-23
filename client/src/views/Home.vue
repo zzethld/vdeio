@@ -23,6 +23,9 @@
       </div>
 
       <template v-else>
+        <!-- Serial-number unlock -->
+        <CodeUnlock @unlocked="onCodeUnlocked" />
+
         <!-- Campaign Tabs -->
         <div v-if="campaigns.length > 0" class="campaign-tabs">
           <button
@@ -50,6 +53,11 @@
             <div class="video-info">
               <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
               <span class="video-size">{{ formatFileSize(video.fileSize) }}</span>
+              <div class="video-badges">
+                <span v-if="video.accessMode === 'code'" class="badge badge-lock">🔒 序列号</span>
+                <span v-if="video.accessMode === 'open'" class="badge badge-open">🌐 公开</span>
+                <span v-if="video.offlineAllowed === false" class="badge badge-online">⚠️ 需在线</span>
+              </div>
             </div>
             <button
               class="btn-play"
@@ -73,12 +81,16 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import request from '@/utils/request';
+import CodeUnlock from '@/components/CodeUnlock.vue';
 
 interface VideoItem {
   id: number;
   title: string;
   fileSize: number;
   encryptStatus: string;
+  accessMode: 'open' | 'campaign' | 'code';
+  offlineAllowed: boolean;
+  keyTtlHours: number;
   [key: string]: unknown;
 }
 
@@ -125,6 +137,11 @@ async function loadVideos() {
 
 function playVideo(id: number) {
   router.push(`/player/${id}`);
+}
+
+function onCodeUnlocked(_video: { videoId: number; title: string; accessMode: string }) {
+  // Refresh the list so the unlocked video reflects its current state.
+  loadVideos();
 }
 
 function formatFileSize(bytes: number): string {
@@ -335,6 +352,39 @@ onMounted(() => {
 .video-size {
   font-size: 12px;
   color: #999;
+}
+
+.video-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-lock {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.badge-open {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.badge-online {
+  background: rgba(229, 62, 62, 0.12);
+  color: #c53030;
 }
 
 .btn-play {

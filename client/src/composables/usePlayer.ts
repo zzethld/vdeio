@@ -5,7 +5,7 @@ import request from '@/utils/request';
 type PlayEvent = 'start' | 'pause' | 'resume' | 'end' | 'seek';
 
 const PROGRESS_SAVE_INTERVAL = 5000; // 5 seconds
-const KEY_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+let currentKeyTtlHours = 168; // default 7 days
 
 export function usePlayer() {
   const loading = ref(false);
@@ -31,12 +31,13 @@ export function usePlayer() {
     return `video:key:${videoId}`;
   }
 
-  function getCachedKey(videoId: number): string | null {
+  function getCachedKey(videoId: number, ttlHours: number): string | null {
+    if (ttlHours <= 0) return null;
     const raw = localStorage.getItem(getKeyCacheKey(videoId));
     if (!raw) return null;
     try {
       const cached: CachedKey = JSON.parse(raw);
-      if (Date.now() - cached.timestamp > KEY_CACHE_TTL) {
+      if (Date.now() - cached.timestamp > ttlHours * 3600 * 1000) {
         localStorage.removeItem(getKeyCacheKey(videoId));
         return null;
       }
@@ -46,14 +47,15 @@ export function usePlayer() {
     }
   }
 
-  function setCachedKey(videoId: number, keyBase64: string): void {
+  function setCachedKey(videoId: number, keyBase64: string, ttlHours: number): void {
+    if (ttlHours <= 0) return;
     const cached: CachedKey = { key: keyBase64, timestamp: Date.now() };
     localStorage.setItem(getKeyCacheKey(videoId), JSON.stringify(cached));
   }
 
-  async function fetchEncryptionKey(videoId: number): Promise<ArrayBuffer> {
+  async function fetchEncryptionKey(videoId: number, ttlHours: number): Promise<ArrayBuffer> {
     // Try cache first
-    const cached = getCachedKey(videoId);
+    const cached = getCachedKey(videoId, ttlHours);
     if (cached) {
       return base64ToArrayBuffer(cached);
     }
@@ -63,7 +65,7 @@ export function usePlayer() {
       responseType: 'arraybuffer',
     });
     const keyBuffer = res.data as ArrayBuffer;
-    setCachedKey(videoId, arrayBufferToBase64(keyBuffer));
+    setCachedKey(videoId, arrayBufferToBase64(keyBuffer), ttlHours);
     return keyBuffer;
   }
 
@@ -246,7 +248,7 @@ export function usePlayer() {
       player.getNetworkingEngine()?.registerResponseFilter(async (_type, response) => {
         if (_type === shaka.net.NetworkingEngine.RequestType.KEY && currentVideoId) {
           try {
-            const keyBuffer = await fetchEncryptionKey(currentVideoId);
+            const keyBuffer = await fetchEncryptionKey(currentVideoId, currentKeyTtlHours);
             response.data = keyBuffer;
             response.headers = {};
           } catch (err) {
@@ -258,18 +260,26 @@ export function usePlayer() {
       // Determine manifest URI
       let manifestUri: string;
 
-      // Try local cache first
+      // Fetch playlist metadata from server (needed for offline gating and key TTL)
+      const res = await request.get(`/devices/videos/${videoId}/playlist`);
+      const data = res.data as {
+        url: string;
+        title?: string;
+        keyTtlHours: number;
+        offlineAllowed: boolean;
+        accessMode: string;
+      };
+      currentKeyTtlHours = data.keyTtlHours;
+      if (data.title) {
+        videoTitle.value = data.title;
+      }
+
+      // Try local cache only when offline playback is allowed
       const localPath = getLocalPath(videoId);
-      if (localPath) {
+      if (localPath && data.offlineAllowed) {
         manifestUri = localPath;
       } else {
-        // Fetch playlist URL from server
-        const res = await request.get(`/devices/videos/${videoId}/playlist`);
-        const data = res.data as { url: string; title?: string };
         manifestUri = data.url;
-        if (data.title) {
-          videoTitle.value = data.title;
-        }
       }
 
       // Load the stream

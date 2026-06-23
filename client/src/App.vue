@@ -8,6 +8,7 @@ import { useDeviceStore } from '@/stores/device';
 
 const deviceStore = useDeviceStore();
 let cleanupSyncVideoReady: (() => void) | null = null;
+let cleanupSyncVideoDeleted: (() => void) | null = null;
 
 onMounted(async () => {
   await deviceStore.initDevice();
@@ -15,7 +16,17 @@ onMounted(async () => {
   // Listen for sync:video-ready IPC events and persist local paths
   if (window.electronAPI?.onSyncVideoReady) {
     cleanupSyncVideoReady = window.electronAPI.onSyncVideoReady((data) => {
-      localStorage.setItem(`video:localPath:${data.videoId}`, data.localPath);
+      if (data.offlineAllowed !== false) {
+        localStorage.setItem(`video:localPath:${data.videoId}`, data.localPath);
+      }
+    });
+  }
+
+  // Listen for sync:video-deleted IPC events and clean renderer storage
+  if (window.electronAPI?.onSyncVideoDeleted) {
+    cleanupSyncVideoDeleted = window.electronAPI.onSyncVideoDeleted((data) => {
+      localStorage.removeItem(`video:localPath:${data.videoId}`);
+      localStorage.removeItem(`video:key:${data.videoId}`);
     });
   }
 });
@@ -23,6 +34,9 @@ onMounted(async () => {
 onUnmounted(() => {
   if (cleanupSyncVideoReady) {
     cleanupSyncVideoReady();
+  }
+  if (cleanupSyncVideoDeleted) {
+    cleanupSyncVideoDeleted();
   }
 });
 </script>

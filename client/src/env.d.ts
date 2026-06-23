@@ -33,7 +33,8 @@ interface Window {
     syncGetStatus: () => Promise<SyncStatusResult>;
     syncProvideToken: (accessToken: string) => void;
     onSyncProgress: (callback: (progress: SyncProgressInfo) => void) => () => void;
-    onSyncVideoReady: (callback: (data: { videoId: number; localPath: string }) => void) => () => void;
+    onSyncVideoReady: (callback: (data: { videoId: number; localPath: string; offlineAllowed?: boolean }) => void) => () => void;
+    onSyncVideoDeleted: (callback: (data: { videoId: number }) => void) => () => void;
     onSyncNeedToken: (callback: () => void) => () => void;
     mqttConnect: (deviceId: string, token: string, brokerUrl?: string) => Promise<{ success?: boolean; error?: string }>;
     mqttDisconnect: () => Promise<{ success?: boolean; error?: string }>;

@@ -22,6 +22,9 @@ export interface VideoDownload {
   fileSize: number;
   campaignId: number;
   playlistUrl: string;
+  accessMode: 'open' | 'campaign' | 'code';
+  offlineAllowed: boolean;
+  keyTtlHours: number;
 }
 
 export interface VideoDelete {
@@ -213,6 +216,17 @@ export class SyncService {
         }
       }
 
+      // Phase 3b: Purge local copies that the server now marks as online-only.
+      // Note: videos that dropped out of the active campaign are already handled
+      // in Phase 3. This pass catches the edge case where a download entry still
+      // references a local copy but its policy switched to online-only.
+      for (const id of this.scanLocalVideos()) {
+        const meta = diff.downloads.find((d) => d.videoId === id);
+        if (meta && meta.offlineAllowed === false) {
+          this.deleteLocalVideo(id);
+        }
+      }
+
       // Phase 4: Download new videos
       if (diff.downloads.length > 0) {
         // Check disk space before downloading
@@ -290,6 +304,7 @@ export class SyncService {
     const videoDir = path.join(this.videosDir, String(videoId));
     if (fs.existsSync(videoDir)) {
       fs.rmSync(videoDir, { recursive: true, force: true });
+      this.sendToRenderer('sync:video-deleted', { videoId });
     }
   }
 
@@ -382,6 +397,7 @@ export class SyncService {
     this.sendToRenderer('sync:video-ready', {
       videoId: video.videoId,
       localPath: path.join(videoDir, 'playlist.m3u8'),
+      offlineAllowed: video.offlineAllowed,
     });
   }
 

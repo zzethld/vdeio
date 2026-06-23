@@ -40,13 +40,23 @@ const electronAPI = {
     };
   },
 
-  onSyncVideoReady: (callback: (data: { videoId: number; localPath: string }) => void): () => void => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { videoId: number; localPath: string }) => {
+  onSyncVideoReady: (callback: (data: { videoId: number; localPath: string; offlineAllowed?: boolean }) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { videoId: number; localPath: string; offlineAllowed?: boolean }) => {
       callback(data);
     };
     ipcRenderer.on('sync:video-ready', handler);
     return () => {
       ipcRenderer.removeListener('sync:video-ready', handler);
+    };
+  },
+
+  onSyncVideoDeleted: (callback: (data: { videoId: number }) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { videoId: number }) => {
+      callback(data);
+    };
+    ipcRenderer.on('sync:video-deleted', handler);
+    return () => {
+      ipcRenderer.removeListener('sync:video-deleted', handler);
     };
   },
 
