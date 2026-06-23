@@ -65,7 +65,13 @@ export function usePlayer() {
       responseType: 'arraybuffer',
     });
     const keyBuffer = res.data as ArrayBuffer;
-    setCachedKey(videoId, arrayBufferToBase64(keyBuffer), ttlHours);
+    // The playlist endpoint now serves m3u8 content (not JSON), so the
+    // per-video keyTtlHours travels via the X-Key-TTL response header on
+    // the /key endpoint. Update the shared TTL so subsequent key requests
+    // and cache checks use the correct per-video value.
+    const ttl = parseInt(String(res.headers?.['x-key-ttl'] ?? '168'), 10);
+    currentKeyTtlHours = ttl;
+    setCachedKey(videoId, arrayBufferToBase64(keyBuffer), ttl);
     return keyBuffer;
   }
 
@@ -244,6 +250,20 @@ export function usePlayer() {
         },
       });
 
+      // Register request filter to attach JWT on all server-side HLS requests
+      // (playlist + segments). The axios request interceptor only covers axios
+      // calls; Shaka performs its own HLS fetches and would otherwise hit the
+      // server without auth and get 401.
+      player.getNetworkingEngine()?.registerRequestFilter((_type, shakaRequest) => {
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+          shakaRequest.headers = {
+            ...shakaRequest.headers,
+            Authorization: `Bearer ${token}`,
+          };
+        }
+      });
+
       // Register response filter to inject the correct key
       player.getNetworkingEngine()?.registerResponseFilter(async (_type, response) => {
         if (_type === shaka.net.NetworkingEngine.RequestType.KEY && currentVideoId) {
@@ -260,27 +280,28 @@ export function usePlayer() {
       // Determine manifest URI
       let manifestUri: string;
 
-      // Fetch playlist metadata from server (needed for offline gating and key TTL)
-      const res = await request.get(`/devices/videos/${videoId}/playlist`);
-      const data = res.data as {
-        url: string;
-        title?: string;
-        keyTtlHours: number;
-        offlineAllowed: boolean;
-        accessMode: string;
-      };
-      currentKeyTtlHours = data.keyTtlHours;
-      if (data.title) {
-        videoTitle.value = data.title;
-      }
-
-      // Try local cache only when offline playback is allowed
+      // Try local cache first. Online-only videos are never downloaded by the
+      // sync-service (filtered in calculateSyncDiff), so they never have a
+      // localPath — no explicit offlineAllowed check is needed here.
       const localPath = getLocalPath(videoId);
-      if (localPath && data.offlineAllowed) {
+      if (localPath) {
         manifestUri = localPath;
       } else {
-        manifestUri = data.url;
+        // The server serves a rewritten m3u8 directly from the playlist
+        // endpoint (segment paths point back to authenticated server routes),
+        // so we can load it as a relative URL without going to MinIO.
+        manifestUri = `/api/v1/devices/videos/${videoId}/playlist`;
       }
+
+      // Clear loading state as soon as the video element has enough data to
+      // render, regardless of when player.load() resolves. Shaka can start
+      // playback before load() settles (segment requests may still be in
+      // flight), and we don't want the loading overlay covering a playing
+      // video.
+      const onLoadedData = (): void => {
+        loading.value = false;
+      };
+      el.addEventListener('loadeddata', onLoadedData, { once: true });
 
       // Load the stream
       await player.load(manifestUri);

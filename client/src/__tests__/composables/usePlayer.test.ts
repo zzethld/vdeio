@@ -5,8 +5,10 @@ import { mount } from '@vue/test-utils';
 // --- Mocks ---
 
 const mockRegisterResponseFilter = vi.fn();
+const mockRegisterRequestFilter = vi.fn();
 const mockNetworkingEngine = {
   registerResponseFilter: mockRegisterResponseFilter,
+  registerRequestFilter: mockRegisterRequestFilter,
 };
 
 const mockPlayerInstance = {
@@ -38,11 +40,10 @@ vi.mock('shaka-player/dist/shaka-player.compiled', () => ({
 
 vi.mock('@/utils/request', () => {
   const get = vi.fn().mockImplementation((url: string) => {
-    if (url.includes('/playlist')) {
-      return Promise.resolve({ data: { url: 'https://example.com/playlist.m3u8', title: 'Test Video', keyTtlHours: 168, offlineAllowed: true, accessMode: 'campaign' } });
-    }
     if (url.includes('/key')) {
-      return Promise.resolve({ data: new ArrayBuffer(16) });
+      // The /key endpoint carries the per-video keyTtlHours via the
+      // X-Key-TTL response header (the playlist endpoint serves m3u8).
+      return Promise.resolve({ data: new ArrayBuffer(16), headers: { 'x-key-ttl': '168' } });
     }
     return Promise.resolve({ data: {} });
   });
@@ -163,6 +164,13 @@ describe('usePlayer', () => {
     expect(localStorage.getItem('video:progress:123')).toBe('15');
   });
 
+  it('registers request filter for JWT injection on HLS requests', async () => {
+    const player = withPlayer();
+    const videoEl = createVideoElement();
+    await player.initPlayer(videoEl, 456);
+    expect(mockRegisterRequestFilter).toHaveBeenCalled();
+  });
+
   it('registers response filter for key interception', async () => {
     const player = withPlayer();
     const videoEl = createVideoElement();
@@ -222,19 +230,9 @@ describe('usePlayer', () => {
   it('does not cache key when ttlHours is 0', async () => {
     const requestGet = request.get as Mock;
     requestGet.mockImplementation((url: string) => {
-      if (url.includes('/playlist')) {
-        return Promise.resolve({
-          data: {
-            url: 'https://example.com/playlist.m3u8',
-            title: 'Test Video',
-            keyTtlHours: 0,
-            offlineAllowed: true,
-            accessMode: 'campaign',
-          },
-        });
-      }
       if (url.includes('/key')) {
-        return Promise.resolve({ data: new ArrayBuffer(16) });
+        // Server reports a 0-hour key TTL for this video.
+        return Promise.resolve({ data: new ArrayBuffer(16), headers: { 'x-key-ttl': '0' } });
       }
       return Promise.resolve({ data: {} });
     });

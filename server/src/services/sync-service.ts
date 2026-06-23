@@ -1,7 +1,6 @@
 import { sequelize } from '../config/database';
 import { QueryTypes } from 'sequelize';
 import { VideoModel, VideoKeyModel, VideoAccessCodeModel } from '../models';
-import { presignedGetUrl } from '../config/minio';
 import { getKeyForVideo } from './encryption';
 
 /** Download instruction returned by calculateSyncDiff. */
@@ -113,7 +112,7 @@ export async function getAuthorizedVideos(storeId: number) {
   const campaignMap = new Map();
   for (const row of campaigns) {
     if (!campaignMap.has(row.id)) {
-      campaignMap.set(row.id, { id: row.id, title: row.title, startTime: row.start_time, endTime: row.end_time, videos: [] });
+      campaignMap.set(row.id, { id: row.id, title: row.title, status: 'active', startTime: row.start_time, endTime: row.end_time, videos: [] });
     }
     campaignMap.get(row.id).videos.push({
       id: row.video_id, title: row.video_title, fileSize: row.file_size,
@@ -170,7 +169,28 @@ export async function isVideoAuthorized(videoId: number, storeId: number, code?:
 }
 
 export async function getVideoPlaylist(videoId: number): Promise<string> {
-  return presignedGetUrl('video-encrypted', `videos/${videoId}/playlist.m3u8`, 86400);
+  // Read the m3u8 from MinIO and rewrite segment paths so they go through
+  // the authenticated server endpoint instead of pointing back at MinIO
+  // (browsers cannot reach MinIO directly due to CORS + CSP, and direct
+  // MinIO access would bypass per-segment authorization).
+  const { minioClient } = await import('../config/minio');
+  const stream = await minioClient.getObject(
+    'video-encrypted',
+    `videos/${videoId}/playlist.m3u8`,
+  );
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream as AsyncIterable<Buffer>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString('utf-8');
+
+  // Rewrite `seg_XXX.ts` lines -> `/api/v1/devices/{videoId}/segment/XXX`
+  // (strip the `seg_` prefix and `.ts` suffix; getSegmentStream re-adds them).
+  const rewritten = raw.replace(
+    /^seg_(\d+)\.ts$/gm,
+    `/api/v1/devices/videos/${videoId}/segment/$1`,
+  );
+  return rewritten;
 }
 
 export async function getVideoKey(videoId: number): Promise<Buffer | null> {

@@ -34,7 +34,7 @@ import {
 } from '../../services/sync-service';
 import { sequelize } from '../../config/database';
 import { VideoModel, VideoAccessCodeModel } from '../../models';
-import { presignedGetUrl, minioClient } from '../../config/minio';
+import { minioClient } from '../../config/minio';
 import { getKeyForVideo } from '../../services/encryption';
 
 describe('Sync Service', () => {
@@ -329,40 +329,60 @@ describe('Sync Service', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getVideoPlaylist — presigned m3u8 URL
+  // getVideoPlaylist — reads m3u8 from MinIO, rewrites segment paths to server routes
   // ---------------------------------------------------------------------------
   describe('getVideoPlaylist', () => {
-    it('returns a presigned URL for the video playlist in the encrypted bucket', async () => {
-      (presignedGetUrl as any).mockResolvedValueOnce('https://signed.example.com/pl.m3u8');
+    function makePlaylist(): string {
+      return [
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        '#EXT-X-TARGETDURATION:10',
+        '#EXT-X-MEDIA-SEQUENCE:0',
+        '#EXT-X-PLAYLIST-TYPE:VOD',
+        '#EXT-X-KEY:METHOD=AES-128,URI="/api/v1/devices/videos/42/key",IV=0xabc',
+        '#EXTINF:10.0,',
+        'seg_000.ts',
+        '#EXTINF:10.0,',
+        'seg_001.ts',
+        '#EXTINF:5.0,',
+        'seg_002.ts',
+        '#EXT-X-ENDLIST',
+      ].join('\n');
+    }
 
-      const url = await getVideoPlaylist(42);
+    it('reads the playlist from the video-encrypted bucket via minioClient', async () => {
+      const fakeStream = (async function* () { yield Buffer.from(makePlaylist()); })();
+      (minioClient.getObject as any).mockResolvedValueOnce(fakeStream);
 
-      expect(presignedGetUrl).toHaveBeenCalledWith(
+      await getVideoPlaylist(42);
+
+      expect(minioClient.getObject).toHaveBeenCalledWith(
         'video-encrypted',
         'videos/42/playlist.m3u8',
-        86400,
-      );
-      expect(url).toBe('https://signed.example.com/pl.m3u8');
-    });
-
-    it('uses a 24-hour (86400s) expiry window', async () => {
-      (presignedGetUrl as any).mockResolvedValueOnce('https://signed.example.com/pl.m3u8');
-      await getVideoPlaylist(1);
-      expect(presignedGetUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        86400,
       );
     });
 
-    it('propagates the videoId into the object key', async () => {
-      (presignedGetUrl as any).mockResolvedValueOnce('x');
-      await getVideoPlaylist(777);
-      expect(presignedGetUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        'videos/777/playlist.m3u8',
-        expect.any(Number),
-      );
+    it('rewrites seg_XXX.ts lines to /api/v1/devices/{videoId}/segment/XXX', async () => {
+      const fakeStream = (async function* () { yield Buffer.from(makePlaylist()); })();
+      (minioClient.getObject as any).mockResolvedValueOnce(fakeStream);
+
+      const result = await getVideoPlaylist(42);
+
+      expect(result).toContain('/api/v1/devices/videos/42/segment/000');
+      expect(result).toContain('/api/v1/devices/videos/42/segment/001');
+      expect(result).toContain('/api/v1/devices/videos/42/segment/002');
+      expect(result).not.toContain('seg_000.ts');
+      expect(result).not.toContain('seg_001.ts');
+    });
+
+    it('propagates the videoId into the segment rewrite', async () => {
+      const fakeStream = (async function* () { yield Buffer.from(makePlaylist()); })();
+      (minioClient.getObject as any).mockResolvedValueOnce(fakeStream);
+
+      const result = await getVideoPlaylist(777);
+
+      expect(result).toContain('/api/v1/devices/videos/777/segment/000');
+      expect(result).toContain('/api/v1/devices/videos/777/segment/001');
     });
   });
 

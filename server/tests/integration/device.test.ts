@@ -65,7 +65,7 @@ describe('Device API Routes', () => {
     vi.mocked(getAuthorizedVideos).mockResolvedValue([]);
     vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(true);
     vi.mocked(isVideoAuthorized).mockResolvedValue(true);
-    vi.mocked(getVideoPlaylist).mockResolvedValue('http://localhost:9000/video-encrypted/videos/1/playlist.m3u8');
+    vi.mocked(getVideoPlaylist).mockResolvedValue('#EXTM3U\n#EXT-X-ENDLIST\n');
     vi.mocked(getVideoKey).mockResolvedValue(Buffer.from('0123456789abcdef', 'hex'));
     vi.mocked(getSegmentStream).mockImplementation(() => {
       return Promise.resolve({
@@ -232,10 +232,17 @@ describe('Device API Routes', () => {
   });
 
   describe('GET /api/v1/devices/videos/:id/playlist', () => {
-    it('should return presigned URL for authorized video', async () => {
+    it('should return rewritten m3u8 playlist for authorized video', async () => {
       const store = await createStore({ name: 'Playlist Store' });
       const device = await createDevice({ deviceId: 'dev-playlist-001', storeId: store.id });
       const video = await createVideo({ title: 'Playlist Video' });
+
+      // The playlist route calls getVideoPlaylist, which is mocked at the
+      // top of the file. Override it here to return a sample m3u8 so we can
+      // assert the route serves it verbatim with the right content-type.
+      vi.mocked(getVideoPlaylist).mockResolvedValueOnce(
+        '#EXTM3U\n#EXTINF:10.0,\n/api/v1/devices/videos/' + video.id + '/segment/000\n#EXT-X-ENDLIST\n',
+      );
 
       const token = getDeviceToken(device.deviceId, store.id);
 
@@ -244,10 +251,12 @@ describe('Device API Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('url');
+      expect(res.headers['content-type']).toMatch(/application\/vnd\.apple\.mpegurl/);
+      expect(res.text).toContain('#EXTM3U');
+      expect(res.text).toContain(`/api/v1/devices/videos/${video.id}/segment/000`);
     });
 
-    it('should return policy fields and headers for authorized video', async () => {
+    it('should return policy headers alongside the m3u8 playlist', async () => {
       const store = await createStore({ name: 'Policy Playlist Store' });
       const device = await createDevice({ deviceId: 'dev-playlist-policy-001', storeId: store.id });
       const video = await createVideo({
@@ -264,12 +273,9 @@ describe('Device API Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({
-        url: 'http://localhost:9000/video-encrypted/videos/1/playlist.m3u8',
-        keyTtlHours: 24,
-        offlineAllowed: false,
-        accessMode: 'code',
-      });
+      // Body is now m3u8 content (not JSON), policy travels via headers.
+      expect(res.headers['content-type']).toMatch(/application\/vnd\.apple\.mpegurl/);
+      expect(res.text).toContain('#EXTM3U');
       expect(res.headers['x-key-ttl']).toBe('24');
       expect(res.headers['x-offline-allowed']).toBe('false');
     });

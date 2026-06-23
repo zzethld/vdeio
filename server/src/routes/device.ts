@@ -36,7 +36,7 @@ router.get('/videos', async (req: Request, res: Response) => {
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
 });
 
-// GET /videos/:id/playlist — Presigned m3u8 URL
+// GET /videos/:id/playlist — Rewritten m3u8 served directly (fixes browser CORS)
 router.get('/videos/:id/playlist', async (req: Request, res: Response) => {
   try {
     const videoId = parseInt(req.params.id);
@@ -45,14 +45,14 @@ router.get('/videos/:id/playlist', async (req: Request, res: Response) => {
     if (!storeId || !(await isVideoAuthorized(videoId, storeId, code))) {
       res.status(403).json({ error: 'Not authorized for this video' }); return;
     }
-    const url = await getVideoPlaylist(videoId);
-    const video = await VideoModel.findByPk(videoId, { attributes: ['keyTtlHours', 'offlineAllowed', 'accessMode'] });
+    const m3u8 = await getVideoPlaylist(videoId);
+    const video = await VideoModel.findByPk(videoId, { attributes: ['keyTtlHours', 'offlineAllowed'] });
     const keyTtlHours = video?.keyTtlHours ?? 0;
     const offlineAllowed = video?.offlineAllowed ?? false;
-    const accessMode = video?.accessMode ?? 'campaign';
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('X-Key-TTL', String(keyTtlHours));
     res.setHeader('X-Offline-Allowed', String(offlineAllowed));
-    res.json({ url, keyTtlHours, offlineAllowed, accessMode });
+    res.send(m3u8);
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
 });
 
