@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { calculateSyncDiff, getAuthorizedVideos, isVideoAuthorizedForStore, getVideoPlaylist, getVideoKey, getSegmentStream } from '../services/sync-service';
-import { DeviceModel } from '../models';
+import { calculateSyncDiff, getAuthorizedVideos, isVideoAuthorizedForStore, isVideoAuthorized, getVideoPlaylist, getVideoKey, getSegmentStream } from '../services/sync-service';
+import { DeviceModel, VideoModel, VideoAccessCodeModel } from '../models';
 import { signAccessToken } from '../utils/jwt';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -41,11 +41,18 @@ router.get('/videos/:id/playlist', async (req: Request, res: Response) => {
   try {
     const videoId = parseInt(req.params.id);
     const storeId = req.storeId;
-    if (!storeId || !(await isVideoAuthorizedForStore(videoId, storeId))) {
+    const code = req.query.code as string | undefined;
+    if (!storeId || !(await isVideoAuthorized(videoId, storeId, code))) {
       res.status(403).json({ error: 'Not authorized for this video' }); return;
     }
     const url = await getVideoPlaylist(videoId);
-    res.json({ url });
+    const video = await VideoModel.findByPk(videoId, { attributes: ['keyTtlHours', 'offlineAllowed', 'accessMode'] });
+    const keyTtlHours = video?.keyTtlHours ?? 0;
+    const offlineAllowed = video?.offlineAllowed ?? false;
+    const accessMode = video?.accessMode ?? 'campaign';
+    res.setHeader('X-Key-TTL', String(keyTtlHours));
+    res.setHeader('X-Offline-Allowed', String(offlineAllowed));
+    res.json({ url, keyTtlHours, offlineAllowed, accessMode });
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
 });
 
@@ -55,11 +62,17 @@ router.get('/videos/:id/key', async (req: Request, res: Response) => {
     const videoId = parseInt(req.params.id);
     const storeId = req.storeId;
     const deviceId = req.deviceId;
-    if (!storeId || !(await isVideoAuthorizedForStore(videoId, storeId))) {
+    const code = req.query.code as string | undefined;
+    if (!storeId || !(await isVideoAuthorized(videoId, storeId, code))) {
       res.status(403).json({ error: 'Not authorized' }); return;
     }
     const key = await getVideoKey(videoId);
     if (!key) { res.status(404).json({ error: 'Key not found' }); return; }
+    const v = await VideoModel.findByPk(videoId, { attributes: ['keyTtlHours', 'offlineAllowed'] });
+    if (v) {
+      res.setHeader('X-Key-TTL', String(v.keyTtlHours));
+      res.setHeader('X-Offline-Allowed', String(v.offlineAllowed));
+    }
     res.setHeader('Content-Type', 'application/octet-stream');
     res.send(key);
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
@@ -71,7 +84,8 @@ router.get('/videos/:id/segment/:seq', async (req: Request, res: Response) => {
     const videoId = parseInt(req.params.id);
     const seq = req.params.seq;
     const storeId = req.storeId;
-    if (!storeId || !(await isVideoAuthorizedForStore(videoId, storeId))) {
+    const code = req.query.code as string | undefined;
+    if (!storeId || !(await isVideoAuthorized(videoId, storeId, code))) {
       res.status(403).json({ error: 'Not authorized' }); return;
     }
     const stream = await getSegmentStream(videoId, seq);
@@ -183,6 +197,29 @@ router.post('/videos/:id/report-play', async (req: Request, res: Response) => {
 
     console.log(`[PlayLog] Video ${videoId}: ${event} at ${position}s / ${duration}s`);
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
+});
+
+// POST /unlock — Code-based access for restricted videos
+router.post('/unlock', async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    const storeId = req.storeId;
+    if (!storeId) { res.status(403).json({ error: 'Device not bound to store' }); return; }
+    if (!code || typeof code !== 'string') { res.status(400).json({ error: 'code is required' }); return; }
+
+    const record = await VideoAccessCodeModel.findOne({
+      where: { code, status: 'active' },
+      include: [{ model: VideoModel, as: 'video', attributes: ['id', 'title', 'accessMode'] }],
+    });
+
+    if (!record || !record.video) { res.status(404).json({ error: 'Invalid code' }); return; }
+    if (record.storeId !== null && record.storeId !== storeId) { res.status(403).json({ error: 'Code not valid for this store' }); return; }
+    if (record.expiresAt && record.expiresAt < new Date()) { res.status(403).json({ error: 'Code expired' }); return; }
+    if (record.maxUses !== null && record.useCount >= record.maxUses) { res.status(403).json({ error: 'Code usage limit reached' }); return; }
+
+    await record.increment('useCount');
+    res.json({ videoId: record.video.id, title: record.video.title, accessMode: record.video.accessMode });
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
 });
 

@@ -1,4 +1,5 @@
 import { DataTypes, Model, Optional, InferAttributes, InferCreationAttributes, CreationOptional, Sequelize } from 'sequelize';
+import type { Video } from './video';
 
 export interface VideoAccessCodeAttributes {
   id: number;
@@ -30,6 +31,8 @@ export class VideoAccessCode extends Model<
   declare status: CreationOptional<'active' | 'disabled'>;
   declare createdBy: number | null;
   declare createdAt: CreationOptional<Date>;
+
+  declare video?: Video;
 }
 
 export function createModel(sequelize: Sequelize): typeof VideoAccessCode {

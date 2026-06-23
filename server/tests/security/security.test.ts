@@ -21,6 +21,7 @@ vi.mock('../../src/services/sync-service', () => ({
   calculateSyncDiff: vi.fn().mockResolvedValue({ downloads: [], deletes: [] }),
   getAuthorizedVideos: vi.fn().mockResolvedValue([]),
   isVideoAuthorizedForStore: vi.fn().mockResolvedValue(true),
+  isVideoAuthorized: vi.fn().mockResolvedValue(true),
   getVideoPlaylist: vi.fn().mockResolvedValue('http://localhost/playlist.m3u8'),
   getVideoKey: vi.fn().mockResolvedValue(Buffer.from('0123456789abcdef', 'hex')),
   getSegmentStream: vi.fn().mockImplementation(() =>
@@ -40,7 +41,7 @@ vi.mock('../../src/services/device-monitor', () => ({
 // ---------------------------------------------------------------------------
 
 import { completeUpload } from '../../src/services/upload';
-import { isVideoAuthorizedForStore } from '../../src/services/sync-service';
+import { isVideoAuthorizedForStore, isVideoAuthorized } from '../../src/services/sync-service';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -131,7 +132,7 @@ describe('Security & Boundary Tests', () => {
         role: 'operator',
       });
 
-      vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(false);
+      vi.mocked(isVideoAuthorized).mockResolvedValue(false);
 
       const res = await request(app)
         .get(`/api/v1/devices/videos/${video.id}/playlist`)

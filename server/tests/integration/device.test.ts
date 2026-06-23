@@ -5,11 +5,12 @@ import { initTestDatabase, resetTestDatabase, closeTestDatabase } from '../setup
 import { createAdmin, createStore, createVideo, createDevice } from '../helpers';
 import { signAccessToken } from '../../src/utils/jwt';
 import { rateLimitMiddleware } from '../../src/middleware/rate-limit';
-import { DeviceModel } from '../../src/models';
+import { DeviceModel, VideoAccessCodeModel } from '../../src/models';
 import {
   calculateSyncDiff,
   getAuthorizedVideos,
   isVideoAuthorizedForStore,
+  isVideoAuthorized,
   getVideoPlaylist,
   getVideoKey,
   getSegmentStream,
@@ -20,6 +21,7 @@ vi.mock('../../src/services/sync-service', () => ({
   calculateSyncDiff: vi.fn(),
   getAuthorizedVideos: vi.fn(),
   isVideoAuthorizedForStore: vi.fn(),
+  isVideoAuthorized: vi.fn(),
   getVideoPlaylist: vi.fn(),
   getVideoKey: vi.fn(),
   getSegmentStream: vi.fn(),
@@ -62,6 +64,7 @@ describe('Device API Routes', () => {
     vi.mocked(calculateSyncDiff).mockResolvedValue({ downloads: [], deletes: [] });
     vi.mocked(getAuthorizedVideos).mockResolvedValue([]);
     vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(true);
+    vi.mocked(isVideoAuthorized).mockResolvedValue(true);
     vi.mocked(getVideoPlaylist).mockResolvedValue('http://localhost:9000/video-encrypted/videos/1/playlist.m3u8');
     vi.mocked(getVideoKey).mockResolvedValue(Buffer.from('0123456789abcdef', 'hex'));
     vi.mocked(getSegmentStream).mockImplementation(() => {
@@ -244,12 +247,39 @@ describe('Device API Routes', () => {
       expect(res.body).toHaveProperty('url');
     });
 
+    it('should return policy fields and headers for authorized video', async () => {
+      const store = await createStore({ name: 'Policy Playlist Store' });
+      const device = await createDevice({ deviceId: 'dev-playlist-policy-001', storeId: store.id });
+      const video = await createVideo({
+        title: 'Policy Video',
+        accessMode: 'code',
+        offlineAllowed: false,
+        keyTtlHours: 24,
+      });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .get(`/api/v1/devices/videos/${video.id}/playlist`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        url: 'http://localhost:9000/video-encrypted/videos/1/playlist.m3u8',
+        keyTtlHours: 24,
+        offlineAllowed: false,
+        accessMode: 'code',
+      });
+      expect(res.headers['x-key-ttl']).toBe('24');
+      expect(res.headers['x-offline-allowed']).toBe('false');
+    });
+
     it('should return 403 for unauthorized video', async () => {
       const store = await createStore({ name: 'No Auth Store' });
       const device = await createDevice({ deviceId: 'dev-no-auth-001', storeId: store.id });
       const video = await createVideo({ title: 'Unauthorized Video' });
 
-      vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(false);
+      vi.mocked(isVideoAuthorized).mockResolvedValue(false);
 
       const token = getDeviceToken(device.deviceId, store.id);
 
@@ -295,7 +325,7 @@ describe('Device API Routes', () => {
       const device = await createDevice({ deviceId: 'dev-no-key-auth-001', storeId: store.id });
       const video = await createVideo({ title: 'No Key Video' });
 
-      vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(false);
+      vi.mocked(isVideoAuthorized).mockResolvedValue(false);
 
       const token = getDeviceToken(device.deviceId, store.id);
 
@@ -346,7 +376,7 @@ describe('Device API Routes', () => {
       const device = await createDevice({ deviceId: 'dev-no-seg-auth-001', storeId: store.id });
       const video = await createVideo({ title: 'No Seg Video' });
 
-      vi.mocked(isVideoAuthorizedForStore).mockResolvedValue(false);
+      vi.mocked(isVideoAuthorized).mockResolvedValue(false);
 
       const token = getDeviceToken(device.deviceId, store.id);
 
@@ -435,6 +465,153 @@ describe('Device API Routes', () => {
 
       expect(res.status).toBe(403);
       expect(res.body.error).toContain('Not authorized');
+    });
+  });
+
+  describe('POST /api/v1/devices/unlock', () => {
+    it('should return video metadata for a valid active code', async () => {
+      const store = await createStore({ name: 'Unlock Store' });
+      const device = await createDevice({ deviceId: 'dev-unlock-001', storeId: store.id });
+      const video = await createVideo({ title: 'Unlock Video', accessMode: 'code' });
+      await VideoAccessCodeModel.create({
+        code: 'VALID-CODE-001',
+        videoId: video.id,
+        storeId: store.id,
+        status: 'active',
+      });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'VALID-CODE-001' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        videoId: video.id,
+        title: video.title,
+        accessMode: 'code',
+      });
+
+      const record = await VideoAccessCodeModel.findOne({ where: { code: 'VALID-CODE-001' } });
+      expect(record?.useCount).toBe(1);
+    });
+
+    it('should return 404 for an invalid code', async () => {
+      const store = await createStore({ name: 'Invalid Code Store' });
+      const device = await createDevice({ deviceId: 'dev-unlock-invalid-001', storeId: store.id });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'NO-SUCH-CODE' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toContain('Invalid code');
+    });
+
+    it('should return 403 for a code scoped to a different store', async () => {
+      const store = await createStore({ name: 'Allowed Store', code: `STORE-ALLOWED-${Date.now()}` });
+      const otherStore = await createStore({ name: 'Other Store', code: `STORE-OTHER-${Date.now()}` });
+      const device = await createDevice({ deviceId: 'dev-unlock-scope-001', storeId: store.id });
+      const video = await createVideo({ title: 'Scoped Video', accessMode: 'code' });
+      await VideoAccessCodeModel.create({
+        code: 'SCOPED-CODE-001',
+        videoId: video.id,
+        storeId: otherStore.id,
+        status: 'active',
+      });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'SCOPED-CODE-001' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain('Code not valid for this store');
+    });
+
+    it('should return 403 when device is not bound to a store', async () => {
+      const device = await createDevice({ deviceId: 'dev-unlock-unbound-001' });
+
+      const token = getDeviceToken(device.deviceId);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'ANY-CODE' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain('Device not bound to store');
+    });
+
+    it('should return 400 when code is missing', async () => {
+      const store = await createStore({ name: 'Missing Code Store' });
+      const device = await createDevice({ deviceId: 'dev-unlock-missing-001', storeId: store.id });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('code is required');
+    });
+
+    it('should return 403 for an expired code', async () => {
+      const store = await createStore({ name: 'Expired Code Store' });
+      const device = await createDevice({ deviceId: 'dev-unlock-expired-001', storeId: store.id });
+      const video = await createVideo({ title: 'Expired Video', accessMode: 'code' });
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await VideoAccessCodeModel.create({
+        code: 'EXPIRED-CODE-001',
+        videoId: video.id,
+        storeId: store.id,
+        status: 'active',
+        expiresAt: yesterday,
+      });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'EXPIRED-CODE-001' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain('Code expired');
+    });
+
+    it('should return 403 when max uses are reached', async () => {
+      const store = await createStore({ name: 'Max Uses Store' });
+      const device = await createDevice({ deviceId: 'dev-unlock-max-001', storeId: store.id });
+      const video = await createVideo({ title: 'Max Uses Video', accessMode: 'code' });
+      await VideoAccessCodeModel.create({
+        code: 'MAX-CODE-001',
+        videoId: video.id,
+        storeId: store.id,
+        status: 'active',
+        maxUses: 2,
+        useCount: 2,
+      });
+
+      const token = getDeviceToken(device.deviceId, store.id);
+
+      const res = await request(app)
+        .post('/api/v1/devices/unlock')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ code: 'MAX-CODE-001' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain('Code usage limit reached');
     });
   });
 
