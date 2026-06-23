@@ -200,16 +200,26 @@ router.post('/videos/:id/report-play', async (req: Request, res: Response) => {
   } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
 });
 
-// POST /unlock — Code-based access for restricted videos
+// POST /unlock — Validate and consume a code for a specific video.
+// The client must call this before each playback attempt; the consumed use
+// grants authorization only for the current playback session.
 router.post('/unlock', async (req: Request, res: Response) => {
   try {
-    const { code } = req.body;
+    const { code, videoId } = req.body;
     const storeId = req.storeId;
     if (!storeId) { res.status(403).json({ error: 'Device not bound to store' }); return; }
     if (!code || typeof code !== 'string') { res.status(400).json({ error: 'code is required' }); return; }
+    if (videoId !== undefined && (typeof videoId !== 'number' || !Number.isInteger(videoId))) {
+      res.status(400).json({ error: 'videoId must be an integer' }); return;
+    }
+
+    const where: Record<string, unknown> = { code, status: 'active' };
+    if (videoId !== undefined) {
+      where.videoId = videoId;
+    }
 
     const record = await VideoAccessCodeModel.findOne({
-      where: { code, status: 'active' },
+      where,
       include: [{ model: VideoModel, as: 'video', attributes: ['id', 'title', 'accessMode'] }],
     });
 

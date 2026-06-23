@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
+import request from '@/utils/request';
 
 // --- Hoisted mock state ---
 const routeState = vi.hoisted(() => ({
@@ -71,10 +72,10 @@ describe('Player.vue', () => {
     mockFns.destroy.mockResolvedValue(undefined);
   });
 
-  function mountPlayer(videoId: string | number = '123', queryTitle?: string) {
+  function mountPlayer(videoId: string | number = '123', queryTitle?: string, accessMode?: string) {
     routeState.value = {
       params: { id: String(videoId) },
-      query: queryTitle ? { title: queryTitle } : {},
+      query: { ...(queryTitle ? { title: queryTitle } : {}), ...(accessMode ? { accessMode } : {}) },
     };
     return {
       push: routerState.push,
@@ -101,12 +102,48 @@ describe('Player.vue', () => {
   it('calls initPlayer on mount when videoId is valid', async () => {
     mountPlayer(42);
     await flushPromises();
-    expect(mockFns.initPlayer).toHaveBeenCalledWith(expect.anything(), 42);
+    expect(mockFns.initPlayer).toHaveBeenCalledWith(expect.anything(), 42, undefined);
   });
 
   it('does not call initPlayer when videoId is NaN', async () => {
     mountPlayer('abc');
     await flushPromises();
+    expect(mockFns.initPlayer).not.toHaveBeenCalled();
+  });
+
+  it('shows code unlock overlay for code-protected videos', async () => {
+    const { wrapper } = mountPlayer(42, undefined, 'code');
+    await flushPromises();
+    expect(wrapper.find('.code-overlay').exists()).toBe(true);
+    expect(wrapper.find('.code-input').exists()).toBe(true);
+    expect(mockFns.initPlayer).not.toHaveBeenCalled();
+  });
+
+  it('calls /unlock and initPlayer with code after submitting', async () => {
+    const { wrapper } = mountPlayer(42, undefined, 'code');
+    await flushPromises();
+
+    await wrapper.find('.code-input').setValue('ABC-123');
+    await wrapper.find('.btn-unlock-play').trigger('click');
+    await flushPromises();
+
+    expect(request.post).toHaveBeenCalledWith('/devices/unlock', { code: 'ABC-123', videoId: 42 });
+    expect(mockFns.initPlayer).toHaveBeenCalledWith(expect.anything(), 42, 'ABC-123');
+  });
+
+  it('shows error when code unlock fails', async () => {
+    (request.post as ReturnType<typeof vi.fn>).mockRejectedValueOnce({
+      response: { data: { error: '无效的序列号' } },
+    });
+
+    const { wrapper } = mountPlayer(42, undefined, 'code');
+    await flushPromises();
+
+    await wrapper.find('.code-input').setValue('BAD');
+    await wrapper.find('.btn-unlock-play').trigger('click');
+    await flushPromises();
+
+    expect(wrapper.find('.code-error').text()).toBe('无效的序列号');
     expect(mockFns.initPlayer).not.toHaveBeenCalled();
   });
 

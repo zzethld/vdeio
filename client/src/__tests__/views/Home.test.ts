@@ -125,13 +125,13 @@ describe('Home.vue', () => {
     expect(wrapper.find('.empty-state').exists()).toBe(true);
   });
 
-  it('clicking play button navigates to player', async () => {
+  it('clicking play button navigates to player with metadata', async () => {
     (request.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       data: {
         campaigns: [
           {
             id: 1, title: 'Campaign A', status: 'active',
-            videos: [{ id: 42, title: 'Click Me', fileSize: 100, encryptStatus: 'done' }],
+            videos: [{ id: 42, title: 'Click Me', fileSize: 100, encryptStatus: 'done', accessMode: 'code' }],
           },
         ],
       },
@@ -141,7 +141,10 @@ describe('Home.vue', () => {
     await flushPromises();
 
     await wrapper.find('.btn-play').trigger('click');
-    expect(pushMock).toHaveBeenCalledWith('/player/42');
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/player/42',
+      query: { title: 'Click Me', accessMode: 'code' },
+    });
   });
 
   it('auto-selects first campaign tab', async () => {

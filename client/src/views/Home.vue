@@ -23,9 +23,6 @@
       </div>
 
       <template v-else>
-        <!-- Serial-number unlock -->
-        <CodeUnlock @unlocked="onCodeUnlocked" />
-
         <!-- Campaign Tabs -->
         <div v-if="campaigns.length > 0" class="campaign-tabs">
           <button
@@ -61,7 +58,7 @@
             </div>
             <button
               class="btn-play"
-              @click="playVideo(video.id)"
+              @click="playVideo(video)"
             >
               播放
             </button>
@@ -81,7 +78,6 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import request from '@/utils/request';
-import CodeUnlock from '@/components/CodeUnlock.vue';
 
 interface VideoItem {
   id: number;
@@ -135,13 +131,14 @@ async function loadVideos() {
   }
 }
 
-function playVideo(id: number) {
-  router.push(`/player/${id}`);
-}
-
-function onCodeUnlocked(_video: { videoId: number; title: string; accessMode: string }) {
-  // Refresh the list so the unlocked video reflects its current state.
-  loadVideos();
+function playVideo(video: VideoItem) {
+  router.push({
+    path: `/player/${video.id}`,
+    query: {
+      title: video.title,
+      accessMode: video.accessMode,
+    },
+  });
 }
 
 function formatFileSize(bytes: number): string {

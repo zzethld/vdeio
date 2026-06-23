@@ -6,8 +6,33 @@
       <span class="video-id">ID: {{ videoId }}</span>
     </header>
     <main class="player-content">
+      <!-- Code unlock overlay -->
+      <div v-if="needsCode && !playing" class="player-overlay code-overlay">
+        <div class="code-panel">
+          <p class="code-title">该视频需要序列号，每次播放需重新输入</p>
+          <input
+            ref="codeInput"
+            v-model="accessCode"
+            class="code-input"
+            type="text"
+            placeholder="输入序列号"
+            :disabled="unlockLoading"
+            @keyup.enter="submitCode"
+          />
+          <button
+            class="btn-unlock-play"
+            type="button"
+            :disabled="unlockLoading || !accessCode.trim()"
+            @click="submitCode"
+          >
+            {{ unlockLoading ? '校验中...' : '播放' }}
+          </button>
+          <p v-if="unlockError" class="code-error">{{ unlockError }}</p>
+        </div>
+      </div>
+
       <!-- Loading overlay -->
-      <div v-if="loading" class="player-overlay">
+      <div v-else-if="loading" class="player-overlay">
         <span class="spinner"></span>
         <span>加载视频中...</span>
       </div>
@@ -30,21 +55,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlayer } from '@/composables/usePlayer';
+import request from '@/utils/request';
 
 const route = useRoute();
 const router = useRouter();
 
 const videoId = computed(() => Number(route.params.id));
+const accessMode = computed(() => (route.query.accessMode as string | undefined) || 'campaign');
 const displayTitle = computed(() => {
   const queryTitle = route.query.title as string | undefined;
   return videoTitle.value || queryTitle || '视频播放';
 });
 
 const videoEl = ref<HTMLVideoElement | null>(null);
-const { loading, error, videoTitle, initPlayer, destroy, retry } = usePlayer();
+const codeInput = ref<HTMLInputElement | null>(null);
+const { loading, error, videoTitle, initPlayer, destroy, retry: retryPlayer } = usePlayer();
+
+const needsCode = ref(false);
+const accessCode = ref('');
+const unlockLoading = ref(false);
+const unlockError = ref('');
+const playing = ref(false);
 
 function goBack(): void {
   destroy().then(() => {
@@ -52,9 +86,51 @@ function goBack(): void {
   });
 }
 
+async function startPlayback(code?: string): Promise<void> {
+  if (!videoEl.value || !videoId.value) return;
+  playing.value = true;
+  await initPlayer(videoEl.value, videoId.value, code);
+}
+
+async function submitCode(): Promise<void> {
+  const code = accessCode.value.trim();
+  if (!code) {
+    unlockError.value = '请输入序列号';
+    return;
+  }
+  unlockLoading.value = true;
+  unlockError.value = '';
+  try {
+    // Consume one use of the code for this specific video.
+    await request.post('/devices/unlock', { code, videoId: videoId.value });
+    await startPlayback(code);
+  } catch (err: unknown) {
+    const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+    unlockError.value = axiosErr.response?.data?.error || axiosErr.message || '校验失败';
+    playing.value = false;
+  } finally {
+    unlockLoading.value = false;
+  }
+}
+
+function retry(): void {
+  error.value = '';
+  if (accessMode.value === 'code') {
+    playing.value = false;
+    accessCode.value = '';
+    unlockError.value = '';
+    nextTick(() => codeInput.value?.focus());
+  } else {
+    retryPlayer();
+  }
+}
+
 onMounted(() => {
-  if (videoEl.value && videoId.value) {
-    initPlayer(videoEl.value, videoId.value);
+  if (accessMode.value === 'code') {
+    needsCode.value = true;
+    nextTick(() => codeInput.value?.focus());
+  } else {
+    startPlayback();
   }
 });
 </script>
@@ -180,5 +256,76 @@ onMounted(() => {
 
 .btn-retry:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.code-overlay {
+  z-index: 20;
+}
+
+.code-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 32px;
+  border-radius: 12px;
+  max-width: 360px;
+  width: 90%;
+}
+
+.code-title {
+  color: #fff;
+  font-size: 14px;
+  margin: 0;
+  text-align: center;
+}
+
+.code-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.code-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.code-input:focus {
+  border-color: #0f3460;
+}
+
+.btn-unlock-play {
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-unlock-play:hover:not(:disabled) {
+  background: #16213e;
+}
+
+.btn-unlock-play:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.code-error {
+  color: #e53e3e;
+  font-size: 13px;
+  margin: 0;
+  text-align: center;
 }
 </style>

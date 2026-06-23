@@ -53,17 +53,27 @@ export function usePlayer() {
     localStorage.setItem(getKeyCacheKey(videoId), JSON.stringify(cached));
   }
 
-  async function fetchEncryptionKey(videoId: number, ttlHours: number): Promise<ArrayBuffer> {
-    // Try cache first
-    const cached = getCachedKey(videoId, ttlHours);
-    if (cached) {
-      return base64ToArrayBuffer(cached);
+  async function fetchEncryptionKey(
+    videoId: number,
+    ttlHours: number,
+    accessCode?: string,
+  ): Promise<ArrayBuffer> {
+    // For code-protected videos the key must not be cached beyond the current
+    // playback session; each play requires re-entering the code.
+    if (!accessCode) {
+      const cached = getCachedKey(videoId, ttlHours);
+      if (cached) {
+        return base64ToArrayBuffer(cached);
+      }
+    }
+
+    const config: Record<string, unknown> = { responseType: 'arraybuffer' };
+    if (accessCode) {
+      config.params = { code: accessCode };
     }
 
     // Fetch from server
-    const res = await request.get(`/devices/videos/${videoId}/key`, {
-      responseType: 'arraybuffer',
-    });
+    const res = await request.get(`/devices/videos/${videoId}/key`, config);
     const keyBuffer = res.data as ArrayBuffer;
     // The playlist endpoint now serves m3u8 content (not JSON), so the
     // per-video keyTtlHours travels via the X-Key-TTL response header on
@@ -71,7 +81,9 @@ export function usePlayer() {
     // and cache checks use the correct per-video value.
     const ttl = parseInt(String(res.headers?.['x-key-ttl'] ?? '168'), 10);
     currentKeyTtlHours = ttl;
-    setCachedKey(videoId, arrayBufferToBase64(keyBuffer), ttl);
+    if (!accessCode) {
+      setCachedKey(videoId, arrayBufferToBase64(keyBuffer), ttl);
+    }
     return keyBuffer;
   }
 
@@ -222,6 +234,7 @@ export function usePlayer() {
   async function initPlayer(
     el: HTMLVideoElement,
     videoId: number,
+    accessCode?: string,
   ): Promise<void> {
     loading.value = true;
     error.value = '';
@@ -253,7 +266,8 @@ export function usePlayer() {
       // Register request filter to attach JWT on all server-side HLS requests
       // (playlist + segments). The axios request interceptor only covers axios
       // calls; Shaka performs its own HLS fetches and would otherwise hit the
-      // server without auth and get 401.
+      // server without auth and get 401. For code-protected videos the same
+      // access code is also appended to every playlist/key/segment request.
       player.getNetworkingEngine()?.registerRequestFilter((_type, shakaRequest) => {
         const token = localStorage.getItem('accessToken');
         if (token) {
@@ -262,20 +276,32 @@ export function usePlayer() {
             Authorization: `Bearer ${token}`,
           };
         }
-      });
 
-      // Register response filter to inject the correct key
-      player.getNetworkingEngine()?.registerResponseFilter(async (_type, response) => {
-        if (_type === shaka.net.NetworkingEngine.RequestType.KEY && currentVideoId) {
-          try {
-            const keyBuffer = await fetchEncryptionKey(currentVideoId, currentKeyTtlHours);
-            response.data = keyBuffer;
-            response.headers = {};
-          } catch (err) {
-            console.error('[Player] Failed to inject encryption key:', err);
+        if (accessCode && shakaRequest.uris && shakaRequest.uris[0]) {
+          const uri = shakaRequest.uris[0];
+          // Only rewrite same-origin device video URLs.
+          if (uri.startsWith('/api/v1/devices/videos/')) {
+            const url = new URL(uri, window.location.origin);
+            url.searchParams.set('code', accessCode);
+            shakaRequest.uris[0] = url.pathname + url.search;
           }
         }
       });
+
+        // Register response filter to inject the correct key.
+        // For code-protected playback the access code is passed through so the
+        // key is fetched with per-request authorization and not cached locally.
+        player.getNetworkingEngine()?.registerResponseFilter(async (_type, response) => {
+          if (_type === shaka.net.NetworkingEngine.RequestType.KEY && currentVideoId) {
+            try {
+              const keyBuffer = await fetchEncryptionKey(currentVideoId, currentKeyTtlHours, accessCode);
+              response.data = keyBuffer;
+              response.headers = {};
+            } catch (err) {
+              console.error('[Player] Failed to inject encryption key:', err);
+            }
+          }
+        });
 
       // Determine manifest URI
       let manifestUri: string;
@@ -290,7 +316,8 @@ export function usePlayer() {
         // The server serves a rewritten m3u8 directly from the playlist
         // endpoint (segment paths point back to authenticated server routes),
         // so we can load it as a relative URL without going to MinIO.
-        manifestUri = `/api/v1/devices/videos/${videoId}/playlist`;
+        const params = accessCode ? `?code=${encodeURIComponent(accessCode)}` : '';
+        manifestUri = `/api/v1/devices/videos/${videoId}/playlist${params}`;
       }
 
       // Clear loading state as soon as the video element has enough data to

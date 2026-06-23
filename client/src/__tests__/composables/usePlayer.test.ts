@@ -193,6 +193,35 @@ describe('usePlayer', () => {
     expect(response.headers).toEqual({});
   });
 
+  it('passes access code to key endpoint and does not cache key for code videos', async () => {
+    const player = withPlayer();
+    const videoEl = createVideoElement();
+    await player.initPlayer(videoEl, 789, 'SECRET-123');
+
+    const filterCallback = mockRegisterResponseFilter.mock.calls[0][0];
+    const response = { data: new ArrayBuffer(0), headers: {} };
+
+    await filterCallback(2, response);
+
+    expect(request.get).toHaveBeenCalledWith('/devices/videos/789/key', {
+      responseType: 'arraybuffer',
+      params: { code: 'SECRET-123' },
+    });
+    expect(localStorage.getItem('video:key:789')).toBeNull();
+  });
+
+  it('appends access code to segment and playlist urls in request filter', async () => {
+    const player = withPlayer();
+    const videoEl = createVideoElement();
+    await player.initPlayer(videoEl, 789, 'SECRET-123');
+
+    const filterCallback = mockRegisterRequestFilter.mock.calls[0][0];
+    const requestObj = { uris: ['/api/v1/devices/videos/789/segment/001'] };
+    filterCallback(1, requestObj); // 1 = RequestType.SEGMENT
+
+    expect(requestObj.uris[0]).toBe('/api/v1/devices/videos/789/segment/001?code=SECRET-123');
+  });
+
   it('uses cached key and skips server fetch on cache hit', async () => {
     const keyBase64 = btoa('x'.repeat(16));
     localStorage.setItem('video:key:789', JSON.stringify({ key: keyBase64, timestamp: Date.now() }));
@@ -208,6 +237,25 @@ describe('usePlayer', () => {
 
     expect(request.get).not.toHaveBeenCalled();
     expect(response.data).toBeInstanceOf(ArrayBuffer);
+  });
+
+  it('ignores cached key when access code is provided', async () => {
+    const keyBase64 = btoa('x'.repeat(16));
+    localStorage.setItem('video:key:789', JSON.stringify({ key: keyBase64, timestamp: Date.now() }));
+
+    const player = withPlayer();
+    const videoEl = createVideoElement();
+    await player.initPlayer(videoEl, 789, 'SECRET-123');
+    const filterCallback = mockRegisterResponseFilter.mock.calls[0][0];
+    vi.clearAllMocks();
+
+    const response = { data: new ArrayBuffer(0), headers: {} };
+    await filterCallback(2, response);
+
+    expect(request.get).toHaveBeenCalledWith('/devices/videos/789/key', {
+      responseType: 'arraybuffer',
+      params: { code: 'SECRET-123' },
+    });
   });
 
   it('expires cached key after TTL and refetches', async () => {
