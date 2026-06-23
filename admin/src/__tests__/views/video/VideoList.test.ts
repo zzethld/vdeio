@@ -86,8 +86,8 @@ describe('VideoList View', () => {
       const wrapper = mountVideoList();
       await flushPromises();
 
-      expect(wrapper.find('.el-input-stub').exists()).toBe(true);
-      expect(wrapper.find('.el-select-stub').exists()).toBe(true);
+      expect(wrapper.find('.filter-input').exists()).toBe(true);
+      expect(wrapper.find('.filter-select').exists()).toBe(true);
     });
   });
 

@@ -3,6 +3,9 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import SkeletonList from '@/components/SkeletonList.vue';
 
 interface Video {
   id: number;
@@ -118,13 +121,13 @@ onMounted(fetchVideos);
 
 <template>
   <div class="video-list">
-    <div class="page-header">
-      <div class="header-actions">
+    <PageHeader title="视频管理">
+      <div class="filter-group">
         <el-input
           v-model="query.search"
           placeholder="搜索视频标题"
           clearable
-          style="width: 240px"
+          class="filter-input"
           prefix-icon="Search"
           @keyup.enter="handleSearch"
           @clear="handleSearch"
@@ -133,7 +136,7 @@ onMounted(fetchVideos);
           v-model="query.encryptStatus"
           placeholder="加密状态"
           clearable
-          style="width: 140px"
+          class="filter-select"
           @change="handleSearch"
         >
           <el-option
@@ -146,9 +149,10 @@ onMounted(fetchVideos);
         <el-button icon="Search" @click="handleSearch">查询</el-button>
       </div>
       <el-button type="primary" icon="Upload" @click="handleUpload">上传视频</el-button>
-    </div>
+    </PageHeader>
 
-    <el-table :data="videos" v-loading="loading" border stripe style="width: 100%">
+    <SkeletonList v-if="loading && videos.length === 0" :rows="5" />
+    <el-table v-else-if="videos.length > 0" :data="videos" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="title" label="标题" min-width="200">
         <template #default="{ row }">
@@ -197,8 +201,9 @@ onMounted(fetchVideos);
         </template>
       </el-table-column>
     </el-table>
+    <EmptyState v-else message="暂无视频" />
 
-    <div class="pagination-wrap">
+    <div v-if="total > 0" class="pagination-wrap">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
@@ -218,22 +223,16 @@ onMounted(fetchVideos);
   padding: 0;
 }
 
-.page-header {
+.filter-group {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: var(--space-3);
+  margin-right: auto;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--space-4);
 }
 </style>

@@ -13,7 +13,7 @@
           <span>登录中...</span>
         </div>
         <template v-else>
-          <div class="mock-icon">🔧</div>
+          <div class="mock-badge">DEV</div>
           <p class="mock-hint">钉钉未配置，使用模拟登录</p>
           <button class="btn-mock-primary" @click="handleMockLogin">
             模拟登录
@@ -100,41 +100,46 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: var(--bg-base);
+  padding: var(--space-6);
 }
 
 .login-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 48px 40px;
+  width: 360px;
+  max-width: 100%;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10) var(--space-8);
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  min-width: 320px;
+  box-shadow: var(--shadow-lg);
 }
 
 .login-title {
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 8px;
+  line-height: 1.3;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
 }
 
 .login-subtitle {
   font-size: 14px;
-  color: #666;
-  margin-bottom: 32px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-8);
 }
 
 .qr-area {
   width: 240px;
   height: 240px;
-  margin: 0 auto 24px;
-  border: 2px solid #e8e8e8;
-  border-radius: 8px;
+  margin: 0 auto var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  background: var(--bg-sunken);
 }
 
 .qr-iframe {
@@ -147,16 +152,16 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  color: #999;
+  gap: var(--space-3);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e8e8e8;
-  border-top-color: #0f3460;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -171,8 +176,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  color: #999;
+  gap: var(--space-2);
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -180,8 +185,8 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #fee;
-  color: #e53e3e;
+  background: color-mix(in srgb, var(--error) 14%, transparent);
+  color: var(--error);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -190,87 +195,111 @@ onMounted(() => {
 }
 
 .btn-retry {
-  margin-top: 4px;
-  padding: 4px 16px;
-  border: 1px solid #0f3460;
-  border-radius: 4px;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: #0f3460;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-retry:hover {
-  background: #0f3460;
-  color: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.btn-retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .login-hint {
   font-size: 12px;
-  color: #999;
-  margin-bottom: 16px;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
 }
 
 .login-error {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-  border-radius: 6px;
-  color: #e53e3e;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 20%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--error);
   font-size: 13px;
 }
 
 .mock-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px dashed #e8e8e8;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px dashed var(--border-default);
 }
 
 .btn-mock {
-  padding: 8px 24px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #f7f7f7;
-  color: #666;
+  padding: var(--space-2) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
   cursor: pointer;
   font-size: 13px;
+  transition: color var(--duration-fast) var(--ease-default);
 }
 
 .btn-mock:hover {
-  background: #eee;
-  color: #333;
+  color: var(--text-secondary);
 }
 
 .mock-area {
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
-.mock-icon {
-  font-size: 48px;
-  line-height: 1;
+.mock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .mock-hint {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .btn-mock-primary {
-  padding: 12px 40px;
+  padding: var(--space-3) var(--space-10);
   border: none;
-  border-radius: 8px;
-  background: #0f3460;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--text-inverse);
   cursor: pointer;
   font-size: 16px;
   font-weight: 600;
-  transition: background 0.2s;
+  transition: background var(--duration-fast) var(--ease-default);
 }
 
 .btn-mock-primary:hover {
-  background: #16213e;
+  background: var(--accent-hover);
+}
+
+.btn-mock-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 </style>

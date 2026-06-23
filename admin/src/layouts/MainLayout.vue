@@ -54,9 +54,6 @@ function handleLogout() {
         :default-active="activeMenu"
         :collapse="isCollapsed"
         :collapse-transition="false"
-        background-color="#1d1e1f"
-        text-color="#bfcbd9"
-        active-text-color="#409eff"
         class="sidebar-menu"
         @select="handleMenuSelect"
       >
@@ -96,11 +93,13 @@ function handleLogout() {
 .main-layout {
   height: 100vh;
   overflow: hidden;
+  background-color: var(--bg-base);
 }
 
 .sidebar {
-  background-color: #1d1e1f;
-  transition: width 0.28s;
+  background-color: var(--bg-elevated);
+  border-right: var(--border-subtle);
+  transition: width var(--duration-slow) var(--ease-default);
   overflow: hidden;
 }
 
@@ -109,11 +108,11 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: var(--border-subtle);
 }
 
 .logo-text {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 4px;
@@ -128,14 +127,48 @@ function handleLogout() {
 
 .sidebar-menu {
   border-right: none;
+  background-color: var(--bg-elevated);
 }
 
 .sidebar-menu:not(.el-menu--collapse) {
   width: 220px;
 }
 
+.sidebar-menu :deep(.el-menu-item) {
+  color: var(--text-secondary);
+  transition: background-color var(--duration-fast) var(--ease-default),
+              color var(--duration-fast) var(--ease-default);
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  position: relative;
+  background-color: var(--bg-active);
+  color: var(--accent);
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.sidebar-menu :deep(.el-icon) {
+  color: inherit;
+}
+
 .main-container {
   overflow: hidden;
+  background-color: var(--bg-base);
 }
 
 .top-bar {
@@ -143,47 +176,49 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
-  padding: 0 20px;
+  background-color: var(--bg-elevated);
+  border-bottom: var(--border-subtle);
+  padding: 0 var(--space-5);
 }
 
 .top-bar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .collapse-btn {
   font-size: 20px;
   cursor: pointer;
-  color: #606266;
-  transition: color 0.2s;
+  color: var(--text-secondary);
+  transition: color var(--duration-fast) var(--ease-default);
 }
 
 .collapse-btn:hover {
-  color: #409eff;
+  color: var(--accent);
 }
 
 .page-title {
-  font-size: 16px;
+  font-size: var(--el-font-size-large);
   font-weight: 600;
-  color: #303133;
+  color: var(--text-primary);
 }
 
 .top-bar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .admin-name {
-  font-size: 14px;
-  color: #606266;
+  font-size: var(--el-font-size-base);
+  color: var(--text-secondary);
 }
 
 .content-area {
-  background-color: #f5f7fa;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
   overflow-y: auto;
+  padding: var(--space-6);
 }
 </style>

@@ -46,7 +46,7 @@ async function handleLogin() {
     <div class="login-card">
       <div class="login-header">
         <h1 class="login-title">VDEIO</h1>
-        <p class="login-subtitle">管理后台</p>
+        <p class="login-subtitle">连锁门店视频管理系统</p>
       </div>
 
       <el-form
@@ -92,37 +92,42 @@ async function handleLogin() {
 <style scoped>
 .login-page {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background-color: var(--bg-base);
+  padding: var(--space-6);
 }
 
 .login-card {
-  width: 400px;
-  padding: 48px 40px 32px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-12) var(--space-8) var(--space-8);
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: var(--border-subtle);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: var(--space-8);
 }
 
 .login-title {
   font-size: 32px;
-  font-weight: 800;
-  color: #1a1a2e;
+  font-weight: 700;
+  color: var(--text-primary);
   letter-spacing: 6px;
-  margin-bottom: 4px;
+  margin: 0 0 var(--space-2);
+  line-height: 1.2;
 }
 
 .login-subtitle {
-  font-size: 14px;
-  color: #909399;
+  font-size: var(--el-font-size-base);
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 .login-btn {

@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
+import './styles/design-tokens.css';
 
 const app = createApp(App);
 const pinia = createPinia();

@@ -24,6 +24,9 @@ const { messageMocks, requestMocks, echartsMocks } = vi.hoisted(() => ({
       resize: vi.fn(),
       dispose: vi.fn(),
     })),
+    graphic: {
+      LinearGradient: vi.fn(),
+    },
   },
 }));
 
@@ -91,7 +94,7 @@ describe('Dashboard View', () => {
     it('renders the campaign and device chart containers', () => {
       requestMocks.get.mockResolvedValue({ data: mockStats });
       const wrapper = mountDashboard();
-      expect(wrapper.find('#campaign-chart').exists()).toBe(true);
+      expect(wrapper.find('#trend-chart').exists()).toBe(true);
       expect(wrapper.find('#device-chart').exists()).toBe(true);
     });
   });

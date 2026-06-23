@@ -1,71 +1,60 @@
 <template>
   <div class="home-page">
-    <header class="home-header">
-      <div class="header-left">
-        <h1>视频列表</h1>
-      </div>
-      <div class="header-right">
-        <span class="store-name" v-if="authStore.storeInfo">
+    <AppHeader title="视频列表">
+      <template #right>
+        <span v-if="authStore.storeInfo" class="store-name">
           {{ authStore.storeInfo.name }}
         </span>
         <button class="btn-logout" @click="authStore.logout()">退出</button>
-      </div>
-    </header>
+      </template>
+    </AppHeader>
+
     <main class="home-content">
-      <div v-if="loading" class="loading-state">
-        <span class="spinner"></span>
-        <span>加载中...</span>
+      <div v-if="loading" class="state-overlay">
+        <LoadingOverlay message="加载中..." />
       </div>
 
-      <div v-else-if="error" class="error-state">
+      <div v-else-if="error" class="state-message error-state">
         <p>{{ error }}</p>
         <button class="btn-retry" @click="loadVideos">重试</button>
       </div>
 
       <template v-else>
-        <!-- Campaign Tabs -->
-        <div v-if="campaigns.length > 0" class="campaign-tabs">
-          <button
-            v-for="campaign in campaigns"
-            :key="campaign.id"
-            :class="['tab-btn', { active: activeCampaignId === campaign.id }]"
-            @click="activeCampaignId = campaign.id"
-          >
-            {{ campaign.title }}
-          </button>
-        </div>
+        <CampaignTabs
+          v-if="campaigns.length > 0"
+          v-model="activeCampaignId"
+          :campaigns="campaigns"
+        />
 
-        <!-- Video Grid -->
         <div v-if="activeVideos.length > 0" class="video-grid">
-          <div
+          <VideoCard
             v-for="video in activeVideos"
             :key="video.id"
-            class="video-card"
+            :title="video.title"
+            :size="formatFileSize(video.fileSize)"
+            @play="playVideo(video)"
           >
-            <div class="video-thumb">
-              <div class="thumb-placeholder">
-                <span class="thumb-icon">▶</span>
-              </div>
-            </div>
-            <div class="video-info">
-              <h3 class="video-title" :title="video.title">{{ video.title }}</h3>
-              <span class="video-size">{{ formatFileSize(video.fileSize) }}</span>
-              <div class="video-badges">
-                <span v-if="video.accessMode === 'code'" class="badge badge-lock">🔒 序列号</span>
-                <span v-if="video.accessMode === 'open'" class="badge badge-open">🌐 公开</span>
-                <span v-if="video.offlineAllowed === false" class="badge badge-online">⚠️ 需在线</span>
-              </div>
-            </div>
-            <button
-              class="btn-play"
-              @click="playVideo(video)"
-            >
-              播放
-            </button>
-          </div>
+            <template #badges>
+              <StatusBadge
+                v-if="video.accessMode === 'code'"
+                type="lock"
+                label="序列号"
+              />
+              <StatusBadge
+                v-if="video.accessMode === 'open'"
+                type="open"
+                label="公开"
+              />
+              <StatusBadge
+                v-if="video.offlineAllowed === false"
+                type="online"
+                label="需在线"
+              />
+            </template>
+          </VideoCard>
         </div>
 
-        <div v-else class="empty-state">
+        <div v-else class="state-message empty-state">
           <p>暂无视频</p>
         </div>
       </template>
@@ -77,6 +66,11 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import AppHeader from '@/components/AppHeader.vue';
+import CampaignTabs from '@/components/CampaignTabs.vue';
+import VideoCard from '@/components/VideoCard.vue';
+import StatusBadge from '@/components/StatusBadge.vue';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import request from '@/utils/request';
 
 interface VideoItem {
@@ -117,9 +111,7 @@ async function loadVideos() {
   try {
     const res = await request.get('/devices/videos');
     const allCampaigns: Campaign[] = res.data.campaigns || [];
-    // Only show active campaigns
     campaigns.value = allCampaigns.filter((c) => c.status === 'active');
-    // Auto-select first tab
     if (campaigns.value.length > 0 && !activeCampaignId.value) {
       activeCampaignId.value = campaigns.value[0].id;
     }
@@ -161,254 +153,100 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f5f6fa;
+  background: var(--bg-base);
 }
 
-.home-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-.header-left h1 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.home-content {
+  position: relative;
+  flex: 1;
+  padding: var(--space-6);
+  overflow-y: auto;
 }
 
 .store-name {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .btn-logout {
-  padding: 6px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #666;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-logout:hover {
-  border-color: #0f3460;
-  color: #0f3460;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
-.home-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
+.btn-logout:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
-.loading-state {
+.state-overlay {
+  position: relative;
+  height: 300px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.state-message {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 300px;
-  gap: 12px;
-  color: #999;
-  font-size: 14px;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: 16px;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e8e8e8;
-  border-top-color: #0f3460;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  gap: 12px;
-  color: #e53e3e;
-  font-size: 14px;
+.state-message.error {
+  color: var(--error);
 }
 
 .btn-retry {
-  padding: 6px 20px;
-  border: 1px solid #0f3460;
-  border-radius: 4px;
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: #0f3460;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-retry:hover {
-  background: #0f3460;
-  color: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
-.campaign-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e8e8e8;
-}
-
-.tab-btn {
-  padding: 10px 24px;
-  border: none;
-  background: transparent;
-  color: #666;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-.tab-btn:hover {
-  color: #0f3460;
-}
-
-.tab-btn.active {
-  color: #0f3460;
-  border-bottom-color: #0f3460;
-  font-weight: 600;
+.btn-retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px;
-}
-
-.video-card {
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.video-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
-}
-
-.video-thumb {
-  width: 100%;
-  height: 130px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
-}
-
-.thumb-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.thumb-icon {
-  font-size: 32px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.video-info {
-  padding: 12px 14px 8px;
-}
-
-.video-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1a1a2e;
-  margin: 0 0 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.video-size {
-  font-size: 12px;
-  color: #999;
-}
-
-.video-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.5;
-  white-space: nowrap;
-}
-
-.badge-lock {
-  background: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-}
-
-.badge-open {
-  background: rgba(16, 185, 129, 0.14);
-  color: #047857;
-}
-
-.badge-online {
-  background: rgba(229, 62, 62, 0.12);
-  color: #c53030;
-}
-
-.btn-play {
-  display: block;
-  width: calc(100% - 28px);
-  margin: 0 14px 14px;
-  padding: 8px 0;
-  border: none;
-  border-radius: 6px;
-  background: #0f3460;
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: background 0.2s;
-}
-
-.btn-play:hover {
-  background: #16213e;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 300px;
-  color: #999;
-  font-size: 16px;
+  gap: var(--space-5);
 }
 </style>

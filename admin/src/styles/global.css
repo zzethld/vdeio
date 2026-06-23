@@ -1,0 +1,49 @@
+/* Global admin styles and Element Plus component overrides */
+
+/* Table overrides: subtle dark theme with custom hover/header colors */
+.el-table {
+  --el-table-header-bg-color: var(--bg-elevated);
+  --el-table-header-text-color: var(--text-secondary);
+  --el-table-row-hover-bg-color: var(--bg-hover);
+  --el-table-border-color: var(--el-border-color-light);
+  --el-table-tr-bg-color: transparent;
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--el-table-header-bg-color);
+  color: var(--el-table-header-text-color);
+  font-weight: 600;
+}
+
+.el-table--enable-row-hover .el-table__body tr:hover > td.el-table__cell {
+  background-color: var(--el-table-row-hover-bg-color);
+}
+
+/* Common form/control widths */
+.filter-input {
+  width: 240px;
+}
+
+.filter-select {
+  width: 140px;
+}
+
+.form-medium {
+  width: 240px;
+}
+
+.form-full {
+  width: 100%;
+}
+
+/* Utility spacing helpers using design tokens */
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-1 { margin-bottom: var(--space-1); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.ml-2 { margin-left: var(--space-2); }
+.mr-2 { margin-right: var(--space-2); }

@@ -3,6 +3,9 @@ import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import SkeletonList from '@/components/SkeletonList.vue';
 
 interface Campaign {
   id: number;
@@ -104,13 +107,13 @@ onMounted(fetchCampaigns);
 
 <template>
   <div class="campaign-list">
-    <div class="page-header">
-      <div class="header-actions">
+    <PageHeader title="推广计划">
+      <div class="filter-group">
         <el-select
           v-model="query.status"
           placeholder="状态筛选"
           clearable
-          style="width: 140px"
+          class="filter-select"
           @change="handleFilter"
         >
           <el-option
@@ -122,9 +125,10 @@ onMounted(fetchCampaigns);
         </el-select>
       </div>
       <el-button type="primary" icon="Plus" @click="handleCreate">新建推广计划</el-button>
-    </div>
+    </PageHeader>
 
-    <el-table :data="campaigns" v-loading="loading" border stripe style="width: 100%">
+    <SkeletonList v-if="loading && campaigns.length === 0" :rows="5" />
+    <el-table v-else-if="campaigns.length > 0" :data="campaigns" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="title" label="标题" min-width="200">
         <template #default="{ row }">
@@ -176,8 +180,9 @@ onMounted(fetchCampaigns);
         </template>
       </el-table-column>
     </el-table>
+    <EmptyState v-else message="暂无推广计划" />
 
-    <div class="pagination-wrap">
+    <div v-if="total > 0" class="pagination-wrap">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
@@ -197,22 +202,16 @@ onMounted(fetchCampaigns);
   padding: 0;
 }
 
-.page-header {
+.filter-group {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: var(--space-3);
+  margin-right: auto;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--space-4);
 }
 </style>

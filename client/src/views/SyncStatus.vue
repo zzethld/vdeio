@@ -1,18 +1,13 @@
 <template>
   <div class="sync-status-page">
-    <header class="page-header">
-      <div class="header-left">
-        <button class="btn-back" @click="router.back()">← 返回</button>
-        <h1>同步状态</h1>
-      </div>
-    </header>
+    <AppHeader title="同步状态" show-back />
 
     <main class="sync-content">
       <!-- Status Card -->
-      <div class="status-card">
+      <div class="card status-card">
         <div class="status-row">
           <span class="label">当前状态</span>
-          <span :class="['status-badge', statusClass]">{{ statusText }}</span>
+          <StatusBadge :type="badgeType" :label="statusText" />
         </div>
         <div class="status-row">
           <span class="label">上次同步</span>
@@ -20,22 +15,19 @@
         </div>
         <div class="status-row">
           <span class="label">本地缓存</span>
-          <span class="value">{{ cacheSizeText }}（{{ syncStatus?.cachedVideoCount || 0 }} 个视频）</span>
+          <span class="value">
+            {{ cacheSizeText }}（{{ syncStatus?.cachedVideoCount || 0 }} 个视频）
+          </span>
         </div>
       </div>
 
       <!-- Progress Card -->
-      <div v-if="progress && progress.status === 'syncing'" class="progress-card">
+      <div v-if="progress && progress.status === 'syncing'" class="card progress-card">
         <div class="progress-header">
           <span class="progress-phase">{{ phaseText }}</span>
           <span class="progress-count">{{ progress.current }} / {{ progress.total }}</span>
         </div>
-        <div class="progress-bar-track">
-          <div
-            class="progress-bar-fill"
-            :style="{ width: progressPercent + '%' }"
-          ></div>
-        </div>
+        <ProgressBar :percent="progressPercent" />
         <div v-if="progress.message" class="progress-message">{{ progress.message }}</div>
         <div v-if="progress.videoTitle" class="progress-video">
           当前: {{ progress.videoTitle }}
@@ -43,12 +35,12 @@
       </div>
 
       <!-- Error message -->
-      <div v-if="progress && progress.status === 'error'" class="error-card">
+      <div v-if="progress && progress.status === 'error'" class="card error-card">
         <p>{{ progress.message || '同步失败' }}</p>
       </div>
 
       <!-- Actions -->
-      <div class="actions-card">
+      <div class="card actions-card">
         <button
           class="btn-sync"
           :disabled="isSyncing"
@@ -62,7 +54,7 @@
       </div>
 
       <!-- Event Log -->
-      <div v-if="logs.length > 0" class="log-card">
+      <div v-if="logs.length > 0" class="card log-card">
         <h3>同步日志</h3>
         <div class="log-list">
           <div v-for="(log, i) in logs" :key="i" class="log-item">
@@ -77,8 +69,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import AppHeader from '@/components/AppHeader.vue';
+import StatusBadge from '@/components/StatusBadge.vue';
+import ProgressBar from '@/components/ProgressBar.vue';
 
 interface LogEntry {
   time: string;
@@ -86,7 +80,6 @@ interface LogEntry {
   type: 'info' | 'error' | 'success';
 }
 
-const router = useRouter();
 const authStore = useAuthStore();
 
 const syncStatus = ref<{
@@ -120,11 +113,11 @@ const statusText = computed(() => {
   return '空闲';
 });
 
-const statusClass = computed(() => {
+const badgeType = computed(() => {
   const s = syncStatus.value?.status;
   if (s === 'syncing') return 'syncing';
   if (s === 'error') return 'error';
-  if (s === 'paused') return 'paused';
+  if (s === 'paused') return 'warning';
   return 'idle';
 });
 
@@ -240,190 +233,109 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f5f6fa;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  padding: 16px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header-left h1 {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-.btn-back {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #666;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-back:hover {
-  border-color: #0f3460;
-  color: #0f3460;
+  background: var(--bg-base);
 }
 
 .sync-content {
   flex: 1;
-  padding: 24px;
+  padding: var(--space-6);
   overflow-y: auto;
   max-width: 600px;
   margin: 0 auto;
   width: 100%;
 }
 
-.status-card,
-.progress-card,
-.actions-card,
-.log-card,
-.error-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+.card {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-md);
 }
 
 .status-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: var(--space-2) 0;
 }
 
 .status-row + .status-row {
-  border-top: 1px solid #f0f0f0;
+  border-top: var(--border-subtle);
 }
 
 .label {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .value {
   font-size: 14px;
-  color: #1a1a2e;
+  color: var(--text-primary);
   font-weight: 500;
-}
-
-.status-badge {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 20px;
-}
-
-.status-badge.idle {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-badge.syncing {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.status-badge.error {
-  background: #fce4ec;
-  color: #c62828;
-}
-
-.status-badge.paused {
-  background: #fff3e0;
-  color: #e65100;
 }
 
 .progress-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .progress-phase {
   font-size: 14px;
   font-weight: 500;
-  color: #1a1a2e;
+  color: var(--text-primary);
 }
 
 .progress-count {
   font-size: 13px;
-  color: #666;
-}
-
-.progress-bar-track {
-  width: 100%;
-  height: 8px;
-  background: #e8e8e8;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: #0f3460;
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-message {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .progress-video {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: 12px;
-  color: #999;
+  color: var(--text-tertiary);
 }
 
 .error-card {
-  border-left: 4px solid #c62828;
+  border-left: 4px solid var(--error);
 }
 
 .error-card p {
-  color: #c62828;
+  color: var(--error);
   font-size: 14px;
   margin: 0;
 }
 
 .actions-card {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .btn-sync {
   flex: 1;
-  padding: 10px 0;
+  padding: var(--space-3) 0;
   border: none;
-  border-radius: 8px;
-  background: #0f3460;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--text-inverse);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration-fast) var(--ease-default);
 }
 
 .btn-sync:hover:not(:disabled) {
-  background: #16213e;
+  background: var(--accent-hover);
 }
 
 .btn-sync:disabled {
@@ -431,27 +343,41 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
+.btn-sync:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
 .btn-refresh {
-  padding: 10px 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background: #fff;
-  color: #666;
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-refresh:hover {
-  border-color: #0f3460;
-  color: #0f3460;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.btn-refresh:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .log-card h3 {
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a2e;
-  margin: 0 0 12px;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
 }
 
 .log-list {
@@ -461,25 +387,31 @@ onUnmounted(() => {
 
 .log-item {
   display: flex;
-  gap: 8px;
-  padding: 4px 0;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
   font-size: 12px;
 }
 
 .log-time {
-  color: #999;
+  color: var(--text-tertiary);
   white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .log-msg {
-  color: #333;
+  color: var(--text-secondary);
 }
 
 .log-msg.error {
-  color: #c62828;
+  color: var(--error);
 }
 
 .log-msg.success {
-  color: #2e7d32;
+  color: var(--success);
+}
+
+.log-msg.info {
+  color: var(--info);
 }
 </style>

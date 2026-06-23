@@ -117,7 +117,7 @@ describe('Login.vue', () => {
 
     expect(wrapper.find('.mock-area').exists()).toBe(true);
     expect(wrapper.find('.btn-mock-primary').exists()).toBe(true);
-    expect(wrapper.find('.mock-icon').exists()).toBe(true);
+    expect(wrapper.find('.mock-badge').exists()).toBe(true);
   });
 
   it('clicking mock login button calls mockLogin', async () => {

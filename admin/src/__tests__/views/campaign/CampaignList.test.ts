@@ -85,7 +85,7 @@ describe('CampaignList View', () => {
       const wrapper = mountList();
       await flushPromises();
 
-      expect(wrapper.find('.el-select-stub').exists()).toBe(true);
+      expect(wrapper.find('.filter-select').exists()).toBe(true);
     });
   });
 

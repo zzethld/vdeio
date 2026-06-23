@@ -2,6 +2,9 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import SkeletonList from '@/components/SkeletonList.vue';
 
 interface Store {
   id: number;
@@ -156,13 +159,13 @@ onMounted(fetchStores);
 
 <template>
   <div class="store-list">
-    <div class="page-header">
-      <div class="header-actions">
+    <PageHeader title="门店管理">
+      <div class="filter-group">
         <el-input
           v-model="query.search"
           placeholder="搜索门店名称/编码"
           clearable
-          style="width: 240px"
+          class="filter-input"
           prefix-icon="Search"
           @keyup.enter="handleSearch"
           @clear="handleSearch"
@@ -170,9 +173,10 @@ onMounted(fetchStores);
         <el-button icon="Search" @click="handleSearch">查询</el-button>
       </div>
       <el-button type="primary" icon="Plus" @click="handleAdd">新增门店</el-button>
-    </div>
+    </PageHeader>
 
-    <el-table :data="stores" v-loading="loading" border stripe style="width: 100%">
+    <SkeletonList v-if="loading && stores.length === 0" :rows="5" />
+    <el-table v-else-if="stores.length > 0" :data="stores" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" label="门店名称" min-width="160">
         <template #default="{ row }">
@@ -216,8 +220,9 @@ onMounted(fetchStores);
         </template>
       </el-table-column>
     </el-table>
+    <EmptyState v-else message="暂无门店" />
 
-    <div class="pagination-wrap">
+    <div v-if="total > 0" class="pagination-wrap">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
@@ -268,22 +273,16 @@ onMounted(fetchStores);
   padding: 0;
 }
 
-.page-header {
+.filter-group {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: var(--space-3);
+  margin-right: auto;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--space-4);
 }
 </style>

@@ -130,7 +130,7 @@ describe('CampaignCreate View', () => {
       const wrapper = mountCreate();
       await flushPromises();
 
-      expect(wrapper.find('.el-form-stub').exists()).toBe(true);
+      expect(wrapper.find('.campaign-form').exists()).toBe(true);
     });
   });
 

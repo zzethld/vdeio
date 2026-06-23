@@ -78,7 +78,7 @@ describe('Login View', () => {
     it('renders the VDEIO title and subtitle', () => {
       const wrapper = mountLogin();
       expect(wrapper.find('.login-title').text()).toBe('VDEIO');
-      expect(wrapper.find('.login-subtitle').text()).toBe('管理后台');
+      expect(wrapper.find('.login-subtitle').text()).toBe('连锁门店视频管理系统');
     });
 
     it('renders two form inputs (username, password)', () => {

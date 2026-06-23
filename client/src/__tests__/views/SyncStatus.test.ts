@@ -58,7 +58,7 @@ describe('SyncStatus.vue', () => {
     setupElectronAPI();
     const wrapper = mount(SyncStatus);
     await flushPromises();
-    expect(wrapper.find('.page-header h1').text()).toBe('同步状态');
+    expect(wrapper.find('.app-header .header-title').text()).toBe('同步状态');
   });
 
   it('shows back button', async () => {

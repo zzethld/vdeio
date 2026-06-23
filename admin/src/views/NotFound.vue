@@ -22,21 +22,23 @@ function goHome() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 60vh;
+  min-height: 100%;
   text-align: center;
+  background-color: var(--bg-base);
+  padding: var(--space-8);
 }
 
 .error-code {
   font-size: 120px;
   font-weight: 800;
-  color: #c0c4cc;
+  color: var(--text-tertiary);
   line-height: 1;
-  margin-bottom: 16px;
+  margin: 0 0 var(--space-4);
 }
 
 .error-text {
   font-size: 18px;
-  color: #909399;
-  margin-bottom: 32px;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-8);
 }
 </style>

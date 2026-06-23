@@ -35,14 +35,14 @@ describe('Home.vue', () => {
     (request.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ data: { campaigns: [] } });
     const wrapper = mount(Home);
     await flushPromises();
-    expect(wrapper.find('.home-header h1').text()).toBe('视频列表');
+    expect(wrapper.find('.app-header .header-title').text()).toBe('视频列表');
   });
 
   it('shows loading state initially', async () => {
     (request.get as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise(() => {}));
     const wrapper = mount(Home);
     await flushPromises();
-    expect(wrapper.find('.loading-state').exists()).toBe(true);
+    expect(wrapper.find('.state-overlay').exists()).toBe(true);
   });
 
   it('renders campaign tabs for active campaigns', async () => {

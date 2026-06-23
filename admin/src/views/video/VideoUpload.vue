@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
 
 const router = useRouter();
 
@@ -116,10 +117,9 @@ function goToVideoList() {
 
 <template>
   <div class="video-upload">
-    <div class="page-header">
+    <PageHeader title="上传视频">
       <el-button icon="ArrowLeft" @click="goBack">返回列表</el-button>
-      <h3>上传视频</h3>
-    </div>
+    </PageHeader>
 
     <el-card shadow="never">
       <el-upload
@@ -190,20 +190,8 @@ function goToVideoList() {
   padding: 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.page-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .upload-area {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .upload-area :deep(.el-upload-dragger) {
@@ -211,57 +199,63 @@ function goToVideoList() {
 }
 
 .file-info {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .upload-progress {
-  margin-bottom: 20px;
-  padding: 16px;
-  background: var(--el-fill-color-lighter);
-  border-radius: 4px;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
 }
 
 .progress-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: var(--space-2);
+  font-size: var(--el-font-size-base);
   color: var(--el-text-color-regular);
 }
 
 .chunk-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 12px;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
 }
 
 .chunk-cell {
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all var(--duration-fast) var(--ease-default);
 }
 
 .chunk-cell.pending {
-  background: var(--el-fill-color);
-  color: var(--el-text-color-placeholder);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
 }
 
 .chunk-cell.active {
-  background: var(--el-color-primary-light-5);
-  color: #fff;
-  animation: pulse 1s ease-in-out infinite;
+  background: var(--accent);
+  color: var(--text-primary);
+  animation: pulse var(--duration-slow) ease-in-out infinite;
 }
 
 .chunk-cell.done {
-  background: var(--el-color-success);
-  color: #fff;
+  background: var(--success);
+  color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chunk-cell.active {
+    animation: none;
+  }
 }
 
 @keyframes pulse {
@@ -270,10 +264,10 @@ function goToVideoList() {
 }
 
 .upload-result {
-  margin: 20px 0;
+  margin: var(--space-5) 0;
 }
 
 .upload-actions {
-  margin-top: 20px;
+  margin-top: var(--space-5);
 }
 </style>

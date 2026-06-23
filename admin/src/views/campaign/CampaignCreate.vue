@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
 import StoreSelector from '@/components/StoreSelector.vue';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
 
 interface Video {
   id: number;
@@ -196,17 +198,16 @@ onMounted(() => {
 
 <template>
   <div v-loading="pageLoading" class="campaign-create">
-    <div class="page-header">
+    <PageHeader :title="isEdit ? '编辑推广计划' : '新建推广计划'">
       <el-button icon="ArrowLeft" @click="goBack">返回列表</el-button>
-      <h3>{{ isEdit ? '编辑推广计划' : '新建推广计划' }}</h3>
-    </div>
+    </PageHeader>
 
     <el-form
       ref="formRef"
       :model="form"
       :rules="rules"
       label-width="100px"
-      style="max-width: 800px"
+      class="campaign-form"
     >
       <el-form-item label="标题" prop="title">
         <el-input v-model="form.title" placeholder="请输入推广计划标题" maxlength="128" show-word-limit />
@@ -232,7 +233,7 @@ onMounted(() => {
           end-placeholder="结束时间"
           format="YYYY-MM-DD HH:mm"
           value-format="YYYY-MM-DDTHH:mm:ss"
-          style="width: 100%"
+          class="form-full"
         />
       </el-form-item>
 
@@ -243,7 +244,7 @@ onMounted(() => {
             placeholder="搜索视频"
             clearable
             prefix-icon="Search"
-            style="margin-bottom: 8px; width: 240px"
+            class="video-search"
           />
           <el-checkbox-group v-model="form.selectedVideoIds" v-loading="videosLoading">
             <div class="video-checkbox-list">
@@ -254,9 +255,12 @@ onMounted(() => {
                 class="video-checkbox-item"
               >
                 <span>{{ video.title || `视频 #${video.id}` }}</span>
-                <el-tag size="small" type="success" style="margin-left: 8px">已加密</el-tag>
+                <el-tag size="small" type="success" class="video-encrypted-tag">已加密</el-tag>
               </el-checkbox>
-              <el-empty v-if="!videosLoading && filteredVideos.length === 0" description="暂无可用视频" :image-size="60" />
+              <EmptyState
+                v-if="!videosLoading && filteredVideos.length === 0"
+                message="暂无可用视频"
+              />
             </div>
           </el-checkbox-group>
           <div class="selection-count">
@@ -284,40 +288,41 @@ onMounted(() => {
   padding: 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.page-header h3 {
-  margin: 0;
-  font-size: 16px;
+.campaign-form {
+  max-width: 800px;
 }
 
 .video-selector {
   width: 100%;
 }
 
+.video-search {
+  width: 240px;
+  margin-bottom: var(--space-2);
+}
+
 .video-checkbox-list {
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  padding: 8px;
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
 }
 
 .video-checkbox-item {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
+}
+
+.video-encrypted-tag {
+  margin-left: var(--space-2);
 }
 
 .selection-count {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+  margin-top: var(--space-2);
+  font-size: var(--el-font-size-small);
+  color: var(--text-secondary);
 }
 </style>

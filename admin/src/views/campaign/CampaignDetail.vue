@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
 
 interface Video {
   id: number;
@@ -134,35 +136,32 @@ onMounted(fetchCampaign);
 
 <template>
   <div v-loading="loading" class="campaign-detail">
-    <div class="page-header">
+    <PageHeader title="推广计划详情">
       <el-button icon="ArrowLeft" @click="goBack">返回列表</el-button>
-      <h3>推广计划详情</h3>
-      <div class="header-actions">
-        <el-button
-          v-if="campaign?.status === 'draft'"
-          icon="Edit"
-          @click="handleEdit"
-        >
-          编辑
-        </el-button>
-        <el-button
-          v-if="campaign?.status === 'draft'"
-          type="success"
-          icon="Promotion"
-          @click="handlePublish"
-        >
-          发布
-        </el-button>
-        <el-button
-          v-if="campaign?.status === 'active'"
-          type="warning"
-          icon="CircleClose"
-          @click="handleEnd"
-        >
-          手动结束
-        </el-button>
-      </div>
-    </div>
+      <el-button
+        v-if="campaign?.status === 'draft'"
+        icon="Edit"
+        @click="handleEdit"
+      >
+        编辑
+      </el-button>
+      <el-button
+        v-if="campaign?.status === 'draft'"
+        type="success"
+        icon="Promotion"
+        @click="handlePublish"
+      >
+        发布
+      </el-button>
+      <el-button
+        v-if="campaign?.status === 'active'"
+        type="warning"
+        icon="CircleClose"
+        @click="handleEnd"
+      >
+        手动结束
+      </el-button>
+    </PageHeader>
 
     <template v-if="campaign">
       <el-card shadow="never" class="info-card">
@@ -204,8 +203,8 @@ onMounted(fetchCampaign);
         <el-table
           v-if="campaign.videos && campaign.videos.length > 0"
           :data="campaign.videos"
-          border
           size="small"
+          style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column label="标题" min-width="200">
@@ -226,7 +225,7 @@ onMounted(fetchCampaign);
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-else description="暂无关联视频" :image-size="60" />
+        <EmptyState v-else message="暂无关联视频" />
       </el-card>
 
       <el-card shadow="never" class="info-card">
@@ -238,8 +237,8 @@ onMounted(fetchCampaign);
         <el-table
           v-if="campaign.stores && campaign.stores.length > 0"
           :data="campaign.stores"
-          border
           size="small"
+          style="width: 100%"
         >
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column label="门店名称" min-width="160">
@@ -270,7 +269,7 @@ onMounted(fetchCampaign);
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-else description="暂无关联门店" :image-size="60" />
+        <EmptyState v-else message="暂无关联门店" />
       </el-card>
     </template>
   </div>
@@ -281,31 +280,19 @@ onMounted(fetchCampaign);
   padding: 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.page-header h3 {
-  margin: 0;
-  font-size: 16px;
-  flex: 1;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .info-card {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-header span {
+  font-size: var(--el-font-size-large);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 </style>

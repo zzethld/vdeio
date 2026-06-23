@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import request from '@/utils/request';
+import EmptyState from '@/components/EmptyState.vue';
 
 interface Store {
   id: number;
@@ -81,7 +82,7 @@ fetchStores();
         v-model="regionFilter"
         placeholder="按区域筛选"
         clearable
-        style="width: 160px"
+        class="region-filter"
       >
         <el-option
           v-for="r in regions"
@@ -94,7 +95,7 @@ fetchStores();
         v-model="searchText"
         placeholder="搜索门店名称/编码"
         clearable
-        style="width: 200px"
+        class="store-search"
         prefix-icon="Search"
       />
     </div>
@@ -111,7 +112,10 @@ fetchStores();
             {{ store.region }}
           </el-tag>
         </el-checkbox>
-        <el-empty v-if="!loading && filteredStores.length === 0" description="暂无门店数据" :image-size="60" />
+        <EmptyState
+          v-if="!loading && filteredStores.length === 0"
+          message="暂无门店数据"
+        />
       </div>
     </el-checkbox-group>
     <div class="store-summary">
@@ -122,15 +126,23 @@ fetchStores();
 
 <style scoped>
 .store-selector {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  padding: 12px;
+  border: var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
 }
 
 .store-toolbar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.region-filter {
+  width: 160px;
+}
+
+.store-search {
+  width: 200px;
 }
 
 .store-list {
@@ -143,22 +155,22 @@ fetchStores();
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .store-name {
-  margin-right: 8px;
+  margin-right: var(--space-2);
 }
 
 .store-region {
-  margin-left: 4px;
+  margin-left: var(--space-1);
 }
 
 .store-summary {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--el-border-color-extra-light);
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-subtle);
+  font-size: var(--el-font-size-small);
+  color: var(--text-secondary);
 }
 </style>

@@ -144,7 +144,7 @@ describe('VideoEdit View', () => {
 
       // Form-item labels and switch active-text are passed as attrs by the
       // passthrough stubs, so assert on the rendered stub components instead.
-      expect(wrapper.find('.el-select-stub').exists()).toBe(true);
+      expect(wrapper.find('.form-medium').exists()).toBe(true);
       expect(wrapper.find('.el-switch-stub').exists()).toBe(true);
       expect(wrapper.find('.el-input-number-stub').exists()).toBe(true);
       // Hint text inside form-items IS rendered as DOM text

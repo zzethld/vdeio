@@ -2,6 +2,9 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import SkeletonList from '@/components/SkeletonList.vue';
 
 interface Device {
   id: number;
@@ -121,22 +124,23 @@ onMounted(fetchDevices);
 
 <template>
   <div class="device-list">
-    <div class="page-header">
-      <div class="header-actions">
+    <PageHeader title="设备管理">
+      <div class="filter-group">
         <el-select
           v-model="query.status"
           placeholder="设备状态"
           clearable
-          style="width: 140px"
+          class="filter-select"
           @change="handleFilter"
         >
           <el-option label="在线" value="online" />
           <el-option label="离线" value="offline" />
         </el-select>
       </div>
-    </div>
+    </PageHeader>
 
-    <el-table :data="devices" v-loading="loading" border stripe style="width: 100%">
+    <SkeletonList v-if="loading && devices.length === 0" :rows="5" />
+    <el-table v-else-if="devices.length > 0" :data="devices" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column label="设备ID" width="180">
         <template #default="{ row }">
@@ -181,8 +185,9 @@ onMounted(fetchDevices);
         </template>
       </el-table-column>
     </el-table>
+    <EmptyState v-else message="暂无设备" />
 
-    <div class="pagination-wrap">
+    <div v-if="total > 0" class="pagination-wrap">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.pageSize"
@@ -203,10 +208,10 @@ onMounted(fetchDevices);
       destroy-on-close
     >
       <div v-loading="telemetryLoading">
-        <p style="margin-bottom: 12px; color: var(--el-text-color-secondary);">
+        <p class="telemetry-meta">
           设备: {{ telemetryDeviceId.slice(0, 12) }}... (最近 50 条)
         </p>
-        <el-table :data="telemetries" border stripe max-height="400" style="width: 100%">
+        <el-table v-if="telemetries.length > 0" :data="telemetries" max-height="400" style="width: 100%">
           <el-table-column label="时间" width="180">
             <template #default="{ row }">
               {{ formatDate(row.createdAt) }}
@@ -233,7 +238,7 @@ onMounted(fetchDevices);
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-if="!telemetryLoading && telemetries.length === 0" description="暂无遥测数据" :image-size="60" />
+        <EmptyState v-if="!telemetryLoading && telemetries.length === 0" message="暂无遥测数据" />
       </div>
     </el-dialog>
   </div>
@@ -244,22 +249,21 @@ onMounted(fetchDevices);
   padding: 0;
 }
 
-.page-header {
+.filter-group {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  gap: var(--space-3);
+  margin-right: auto;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: var(--space-4);
+}
+
+.telemetry-meta {
+  margin: 0 0 var(--space-3) 0;
+  color: var(--text-secondary);
 }
 </style>

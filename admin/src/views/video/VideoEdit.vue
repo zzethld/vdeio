@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { FormInstance, FormRules } from 'element-plus';
 import request from '@/utils/request';
+import PageHeader from '@/components/PageHeader.vue';
+import EmptyState from '@/components/EmptyState.vue';
 
 type AccessMode = 'open' | 'campaign' | 'code';
 
@@ -239,7 +241,10 @@ function formatDateTime(dateStr: string | null): string {
 function codeStatusTag(
   status: string,
 ): { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' } {
-  const map: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
+  const map: Record<
+    string,
+    { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }
+  > = {
     active: { label: '启用', type: 'success' },
     disabled: { label: '已禁用', type: 'info' },
     expired: { label: '已过期', type: 'danger' },
@@ -255,10 +260,9 @@ onMounted(() => {
 
 <template>
   <div v-loading="pageLoading" class="video-edit">
-    <div class="page-header">
+    <PageHeader title="编辑视频">
       <el-button icon="ArrowLeft" @click="goBack">返回列表</el-button>
-      <h3>编辑视频</h3>
-    </div>
+    </PageHeader>
 
     <el-tabs v-model="activeTab" class="edit-tabs">
       <el-tab-pane label="策略与基础信息" name="policy">
@@ -267,7 +271,7 @@ onMounted(() => {
           :model="form"
           :rules="rules"
           label-width="120px"
-          style="max-width: 800px"
+          class="edit-form"
         >
           <el-divider content-position="left">基础信息</el-divider>
 
@@ -294,7 +298,7 @@ onMounted(() => {
           <el-divider content-position="left">加密策略</el-divider>
 
           <el-form-item label="访问策略" prop="accessMode">
-            <el-select v-model="form.accessMode" placeholder="请选择访问策略" style="width: 240px">
+            <el-select v-model="form.accessMode" placeholder="请选择访问策略" class="form-medium">
               <el-option
                 v-for="opt in accessModeOptions"
                 :key="opt.value"
@@ -347,10 +351,9 @@ onMounted(() => {
           </p>
 
           <el-table
+            v-if="codes.length > 0"
             :data="codes"
             v-loading="codesLoading"
-            border
-            stripe
             style="width: 100%"
           >
             <el-table-column prop="code" label="授权码" min-width="180">
@@ -406,6 +409,7 @@ onMounted(() => {
               </template>
             </el-table-column>
           </el-table>
+          <EmptyState v-else message="暂无授权码" />
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -431,7 +435,7 @@ onMounted(() => {
             placeholder="不选则全部门店"
             clearable
             filterable
-            style="width: 100%"
+            class="form-full"
           >
             <el-option
               v-for="s in storeOptions"
@@ -447,7 +451,7 @@ onMounted(() => {
             :min="1"
             :step="1"
             placeholder="留空表示不限"
-            style="width: 100%"
+            class="form-full"
           />
         </el-form-item>
         <el-form-item label="过期时间">
@@ -457,7 +461,7 @@ onMounted(() => {
             placeholder="不选则永久有效"
             format="YYYY-MM-DD HH:mm:ss"
             value-format="YYYY-MM-DDTHH:mm:ss"
-            style="width: 100%"
+            class="form-full"
           />
         </el-form-item>
       </el-form>
@@ -476,54 +480,47 @@ onMounted(() => {
   padding: 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.page-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .edit-tabs {
   max-width: 900px;
 }
 
+.edit-form {
+  max-width: 800px;
+}
+
 .form-hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-extra-small);
+  color: var(--text-tertiary);
   line-height: 1.5;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .unit-label {
-  margin-left: 8px;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+  margin-left: var(--space-2);
+  font-size: var(--el-font-size-small);
+  color: var(--text-secondary);
 }
 
 .codes-section {
-  padding-top: 4px;
+  padding-top: var(--space-1);
 }
 
 .codes-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .codes-header h4 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--el-font-size-large);
+  color: var(--text-primary);
 }
 
 .section-hint {
-  margin: 0 0 12px 0;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
+  margin: 0 0 var(--space-3) 0;
+  font-size: var(--el-font-size-small);
+  color: var(--text-secondary);
 }
 </style>

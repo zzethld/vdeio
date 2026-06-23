@@ -1,7 +1,12 @@
 <template>
   <div class="player-page">
     <header class="player-header">
-      <button class="btn-back" @click="goBack">← 返回</button>
+      <button class="btn-back" type="button" @click="goBack">
+        <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        返回
+      </button>
       <h1>{{ displayTitle }}</h1>
       <span class="video-id">ID: {{ videoId }}</span>
     </header>
@@ -32,15 +37,16 @@
       </div>
 
       <!-- Loading overlay -->
-      <div v-else-if="loading" class="player-overlay">
-        <span class="spinner"></span>
-        <span>加载视频中...</span>
-      </div>
+      <LoadingOverlay
+        v-else-if="loading"
+        message="加载视频中..."
+        class="player-overlay"
+      />
 
       <!-- Error state -->
       <div v-else-if="error" class="player-overlay error-overlay">
         <p class="error-msg">{{ error }}</p>
-        <button class="btn-retry" @click="retry()">重试</button>
+        <button class="btn-retry" type="button" @click="retry()">重试</button>
       </div>
 
       <!-- Video element -->
@@ -58,6 +64,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlayer } from '@/composables/usePlayer';
+import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import request from '@/utils/request';
 
 const route = useRoute();
@@ -101,7 +108,6 @@ async function submitCode(): Promise<void> {
   unlockLoading.value = true;
   unlockError.value = '';
   try {
-    // Consume one use of the code for this specific video.
     await request.post('/devices/unlock', { code, videoId: videoId.value });
     await startPlayback(code);
   } catch (err: unknown) {
@@ -141,32 +147,53 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #000;
+  background: var(--video-bg);
 }
 
 .player-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 24px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  background: color-mix(in srgb, var(--bg-base) 85%, transparent);
+  color: var(--text-primary);
   flex-shrink: 0;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: var(--border-subtle);
 }
 
 .btn-back {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  padding: 4px 12px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  border: var(--border-default);
+  color: var(--text-secondary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
-  transition: border-color 0.2s;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-back:hover {
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.btn-back:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.back-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .player-header h1 {
@@ -175,13 +202,15 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin: 0;
 }
 
 .video-id {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   margin-left: auto;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .player-content {
@@ -197,7 +226,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000;
+  background: var(--video-bg);
 }
 
 .player-overlay {
@@ -210,30 +239,15 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  gap: var(--space-3);
+  color: var(--text-secondary);
   font-size: 14px;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  background: color-mix(in srgb, var(--bg-base) 75%, transparent);
 }
 
 .error-overlay {
-  color: #e53e3e;
+  color: var(--error);
 }
 
 .error-msg {
@@ -241,21 +255,32 @@ onMounted(() => {
   text-align: center;
   max-width: 400px;
   line-height: 1.5;
+  margin: 0;
 }
 
 .btn-retry {
-  padding: 8px 24px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
+  padding: var(--space-2) var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 13px;
-  transition: background 0.2s;
+  transition:
+    border-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    background var(--duration-fast) var(--ease-default);
 }
 
 .btn-retry:hover {
-  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.btn-retry:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 
 .code-overlay {
@@ -266,16 +291,19 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  background: rgba(0, 0, 0, 0.85);
-  padding: 32px;
-  border-radius: 12px;
+  gap: var(--space-4);
+  background: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  border: var(--border-default);
   max-width: 360px;
   width: 90%;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .code-title {
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   margin: 0;
   text-align: center;
@@ -283,47 +311,63 @@ onMounted(() => {
 
 .code-input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
+  transition: border-color var(--duration-fast) var(--ease-default);
 }
 
 .code-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary);
 }
 
 .code-input:focus {
-  border-color: #0f3460;
+  border-color: var(--accent);
+}
+
+.code-input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+.code-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-unlock-play {
   width: 100%;
-  padding: 10px 0;
+  padding: var(--space-2) 0;
   border: none;
-  border-radius: 6px;
-  background: #0f3460;
-  color: #fff;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--text-inverse);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: background var(--duration-fast) var(--ease-default);
 }
 
 .btn-unlock-play:hover:not(:disabled) {
-  background: #16213e;
+  background: var(--accent-hover);
 }
 
 .btn-unlock-play:disabled {
-  background: #555;
+  background: var(--bg-active);
   cursor: not-allowed;
 }
 
+.btn-unlock-play:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
 .code-error {
-  color: #e53e3e;
+  color: var(--error);
   font-size: 13px;
   margin: 0;
   text-align: center;
