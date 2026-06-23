@@ -140,6 +140,9 @@ export async function createVideo(
     duration: number | null;
     fileSize: number | null;
     resolution: string | null;
+    accessMode: 'open' | 'campaign' | 'code';
+    offlineAllowed: boolean;
+    keyTtlHours: number;
     encryptStatus: 'pending' | 'encrypting' | 'done' | 'failed';
     createdBy: number | null;
   }> = {},
@@ -150,6 +153,9 @@ export async function createVideo(
     duration: overrides.duration ?? 60,
     fileSize: overrides.fileSize ?? 1024 * 1024,
     resolution: overrides.resolution ?? '1920x1080',
+    accessMode: overrides.accessMode ?? 'campaign',
+    offlineAllowed: overrides.offlineAllowed ?? true,
+    keyTtlHours: overrides.keyTtlHours ?? 168,
     encryptStatus: overrides.encryptStatus ?? 'done',
     createdBy: overrides.createdBy ?? null,
   });

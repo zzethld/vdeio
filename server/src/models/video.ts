@@ -11,6 +11,9 @@ export interface VideoAttributes {
   originalUrl: string | null;
   hlsUrl: string | null;
   coverUrl: string | null;
+  accessMode: 'open' | 'campaign' | 'code';
+  offlineAllowed: boolean;
+  keyTtlHours: number;
   encryptStatus: 'pending' | 'encrypting' | 'done' | 'failed';
   createdBy: number | null;
   createdAt: Date;
@@ -18,7 +21,7 @@ export interface VideoAttributes {
   deletedAt: Date | null;
 }
 
-export interface VideoCreationAttributes extends Optional<VideoAttributes, 'id' | 'encryptStatus' | 'createdAt' | 'updatedAt' | 'deletedAt'> {}
+export interface VideoCreationAttributes extends Optional<VideoAttributes, 'id' | 'accessMode' | 'offlineAllowed' | 'keyTtlHours' | 'encryptStatus' | 'createdAt' | 'updatedAt' | 'deletedAt'> {}
 
 export class Video extends Model<InferAttributes<Video>, InferCreationAttributes<Video>> {
   declare id: CreationOptional<number>;
@@ -31,6 +34,9 @@ export class Video extends Model<InferAttributes<Video>, InferCreationAttributes
   declare originalUrl: string | null;
   declare hlsUrl: string | null;
   declare coverUrl: string | null;
+  declare accessMode: CreationOptional<'open' | 'campaign' | 'code'>;
+  declare offlineAllowed: CreationOptional<boolean>;
+  declare keyTtlHours: CreationOptional<number>;
   declare encryptStatus: CreationOptional<'pending' | 'encrypting' | 'done' | 'failed'>;
   declare createdBy: number | null;
   declare createdAt: CreationOptional<Date>;
@@ -90,6 +96,24 @@ export function createModel(sequelize: Sequelize): typeof Video {
         type: DataTypes.STRING(512),
         allowNull: true,
         field: 'cover_url',
+      },
+      accessMode: {
+        type: DataTypes.ENUM('open', 'campaign', 'code'),
+        allowNull: false,
+        defaultValue: 'campaign',
+        field: 'access_mode',
+      },
+      offlineAllowed: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+        field: 'offline_allowed',
+      },
+      keyTtlHours: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 168,
+        field: 'key_ttl_hours',
       },
       encryptStatus: {
         type: DataTypes.ENUM('pending', 'encrypting', 'done', 'failed'),

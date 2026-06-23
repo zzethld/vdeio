@@ -39,6 +39,9 @@ describe('Video Model', () => {
     expect(video.originalUrl).toBe('http://example.com/original.mp4');
     expect(video.hlsUrl).toBe('http://example.com/hls/playlist.m3u8');
     expect(video.coverUrl).toBe('http://example.com/cover.jpg');
+    expect(video.accessMode).toBe('campaign');
+    expect(video.offlineAllowed).toBe(true);
+    expect(video.keyTtlHours).toBe(168);
     expect(video.encryptStatus).toBe('pending');
     expect(video.createdBy).toBe(1);
     expect(video.createdAt).toBeInstanceOf(Date);
@@ -80,5 +83,12 @@ describe('Video Model', () => {
   it('should default encryptStatus to pending', async () => {
     const video = await Video.create({ title: 'No Status Set' });
     expect(video.encryptStatus).toBe('pending');
+  });
+
+  it('should default accessMode to campaign, offlineAllowed to true, and keyTtlHours to 168', async () => {
+    const video = await Video.create({ title: 'No Policy Set' });
+    expect(video.accessMode).toBe('campaign');
+    expect(video.offlineAllowed).toBe(true);
+    expect(video.keyTtlHours).toBe(168);
   });
 });

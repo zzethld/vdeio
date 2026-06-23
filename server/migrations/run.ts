@@ -16,11 +16,19 @@ async function runMigration(): Promise<void> {
   });
 
   try {
-    const sqlPath = path.join(__dirname, '001_create_tables.sql');
-    const sql = fs.readFileSync(sqlPath, 'utf-8');
+    const files = fs
+      .readdirSync(__dirname)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
 
-    console.log('Running migration: 001_create_tables.sql');
-    await connection.query(sql);
+    for (const file of files) {
+      const sqlPath = path.join(__dirname, file);
+      const sql = fs.readFileSync(sqlPath, 'utf-8');
+
+      console.log(`Running migration: ${file}`);
+      await connection.query(sql);
+    }
+
     console.log('Migration completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);

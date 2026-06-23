@@ -7,6 +7,7 @@ import { createModel as createUserStoreBindingModel, UserStoreBinding } from './
 import { createModel as createDeviceModel, Device } from './device';
 import { createModel as createVideoModel, Video } from './video';
 import { createModel as createVideoKeyModel, VideoKey } from './videoKey';
+import { createModel as createVideoAccessCodeModel, VideoAccessCode } from './videoAccessCode';
 import { createModel as createCampaignModel, Campaign } from './campaign';
 import { createModel as createCampaignVideoModel, CampaignVideo } from './campaignVideo';
 import { createModel as createCampaignStoreModel, CampaignStore } from './campaignStore';
@@ -22,6 +23,7 @@ export const UserStoreBindingModel = createUserStoreBindingModel(sequelize);
 export const DeviceModel = createDeviceModel(sequelize);
 export const VideoModel = createVideoModel(sequelize);
 export const VideoKeyModel = createVideoKeyModel(sequelize);
+export const VideoAccessCodeModel = createVideoAccessCodeModel(sequelize);
 export const CampaignModel = createCampaignModel(sequelize);
 export const CampaignVideoModel = createCampaignVideoModel(sequelize);
 export const CampaignStoreModel = createCampaignStoreModel(sequelize);
@@ -94,6 +96,26 @@ export function setupAssociations(): void {
     as: 'video',
   });
 
+  // Video -> VideoAccessCode (one-to-many)
+  VideoModel.hasMany(VideoAccessCodeModel, {
+    foreignKey: 'video_id',
+    as: 'accessCodes',
+  });
+  VideoAccessCodeModel.belongsTo(VideoModel, {
+    foreignKey: 'video_id',
+    as: 'video',
+  });
+
+  // Store -> VideoAccessCode (one-to-many)
+  StoreModel.hasMany(VideoAccessCodeModel, {
+    foreignKey: 'store_id',
+    as: 'accessCodes',
+  });
+  VideoAccessCodeModel.belongsTo(StoreModel, {
+    foreignKey: 'store_id',
+    as: 'store',
+  });
+
   // Category -> Video (one-to-many)
   CategoryModel.hasMany(VideoModel, {
     foreignKey: 'category_id',
@@ -147,6 +169,7 @@ export {
   Device,
   Video,
   VideoKey,
+  VideoAccessCode,
   Campaign,
   CampaignVideo,
   CampaignStore,
