@@ -1,21 +1,15 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonList from '@/components/SkeletonList.vue';
-
-interface Campaign {
-  id: number;
-  title: string | null;
-  description: string | null;
-  status: 'draft' | 'active' | 'ended' | 'archived';
-  startTime: string;
-  endTime: string;
-  createdAt: string;
-}
+import { usePagination } from '@/composables/usePagination';
+import { confirmAction } from '@/utils/confirm';
+import { campaignStatusMap as statusMap, formatDate } from '@/utils/format';
+import type { Campaign } from '@/types';
 
 const router = useRouter();
 
@@ -23,22 +17,10 @@ const loading = ref(false);
 const campaigns = ref<Campaign[]>([]);
 const total = ref(0);
 
-const query = reactive({
-  page: 1,
-  pageSize: 20,
-  status: '',
-});
-
-const statusMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
-  draft: { label: '草稿', type: 'info' },
-  active: { label: '进行中', type: 'success' },
-  ended: { label: '已结束', type: 'danger' },
-  archived: { label: '已归档', type: 'warning' },
-};
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('zh-CN');
-}
+const { query, handleFilter, handlePageChange, handleSizeChange } = usePagination(
+  { status: '' },
+  fetchCampaigns,
+);
 
 async function fetchCampaigns() {
   loading.value = true;
@@ -59,22 +41,6 @@ async function fetchCampaigns() {
   }
 }
 
-function handleFilter() {
-  query.page = 1;
-  fetchCampaigns();
-}
-
-function handlePageChange(page: number) {
-  query.page = page;
-  fetchCampaigns();
-}
-
-function handleSizeChange(size: number) {
-  query.pageSize = size;
-  query.page = 1;
-  fetchCampaigns();
-}
-
 function handleCreate() {
   router.push('/campaigns/create');
 }
@@ -88,18 +54,16 @@ function handleEdit(row: Campaign) {
 }
 
 async function handleDelete(row: Campaign) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除推广计划「${row.title || row.id}」吗？此操作不可恢复。`,
-      '确认删除',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.delete(`/admin/campaigns/${row.id}`);
-    ElMessage.success('删除成功');
-    fetchCampaigns();
-  } catch {
-    // cancelled
-  }
+  await confirmAction({
+    title: '确认删除',
+    message: `确定要删除推广计划「${row.title || row.id}」吗？此操作不可恢复。`,
+    confirmButtonText: '删除',
+    onConfirm: async () => {
+      await request.delete(`/admin/campaigns/${row.id}`);
+      fetchCampaigns();
+    },
+    successMsg: '删除成功',
+  });
 }
 
 onMounted(fetchCampaigns);

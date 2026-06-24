@@ -9,7 +9,6 @@ import {
   signRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-  refreshAccessToken,
   JwtPayload,
   JwtError,
 } from '../../utils/jwt';
@@ -102,52 +101,6 @@ describe('JWT Utilities', () => {
       expect(() => verifyAccessToken(token)).toThrow(JwtError);
       expect(() => verifyAccessToken(token)).toThrow('Access token has expired');
       vi.useRealTimers();
-    });
-  });
-
-  describe('refreshAccessToken', () => {
-    it('should throw when refresh token is invalid', () => {
-      expect(() => refreshAccessToken('invalid.token.here')).toThrow(JwtError);
-    });
-
-    it('should return a new access token and decoded payload from a valid refresh token', () => {
-      const refreshToken = signRefreshToken(payload);
-
-      const result = refreshAccessToken(refreshToken);
-
-      // Returns a freshly-signed access token + the original payload
-      expect(result).toHaveProperty('accessToken');
-      expect(result).toHaveProperty('payload');
-      expect(typeof result.accessToken).toBe('string');
-      expect(result.accessToken.split('.')).toHaveLength(3);
-
-      // The access token must verify with the access secret and carry the same identity
-      const decodedAccess = verifyAccessToken(result.accessToken);
-      expect(decodedAccess.userId).toBe(42);
-      expect(decodedAccess.storeId).toBe(7);
-      expect(decodedAccess.deviceId).toBe('device-abc-123');
-      expect(decodedAccess.role).toBe('admin');
-
-      // The returned payload must be a clean JwtPayload (no iat/exp leakage)
-      // — this is the regression that previously broke /auth/refresh.
-      expect(result.payload).toEqual({
-        userId: 42,
-        storeId: 7,
-        deviceId: 'device-abc-123',
-        role: 'admin',
-      });
-      expect(result.payload).not.toHaveProperty('exp');
-      expect(result.payload).not.toHaveProperty('iat');
-    });
-
-    it('should not mutate or invalidate the source refresh token', () => {
-      const refreshToken = signRefreshToken(payload);
-
-      refreshAccessToken(refreshToken);
-
-      // The original refresh token must still verify after being refreshed
-      const decoded = verifyRefreshToken(refreshToken);
-      expect(decoded.userId).toBe(42);
     });
   });
 

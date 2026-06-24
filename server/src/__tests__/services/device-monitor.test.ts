@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Op } from 'sequelize';
 
 // Mock models before importing service
 vi.mock('../../models', () => ({
@@ -193,7 +194,7 @@ describe('Device Monitor Service', () => {
         rows: [mockDevice],
         count: 1,
       });
-      (DeviceTelemetryModel.findOne as any).mockResolvedValue(mockTelemetry);
+      (DeviceTelemetryModel.findAll as any).mockResolvedValue([mockTelemetry]);
 
       const result = await getDeviceList({ page: 1, pageSize: 10 });
 
@@ -203,11 +204,9 @@ describe('Device Monitor Service', () => {
         limit: 10,
         offset: 0,
       });
-      expect(DeviceTelemetryModel.findOne).toHaveBeenCalledWith({
-        where: { deviceId: 'dev-001' },
-        order: [['created_at', 'DESC']],
-        raw: true,
-      });
+      // Single findAll call (not N findOne calls) — N+1 fix
+      expect(DeviceTelemetryModel.findAll).toHaveBeenCalledTimes(1);
+      expect(DeviceTelemetryModel.findOne).not.toHaveBeenCalled();
       expect(result.rows[0]).toEqual({
         deviceId: 'dev-001',
         status: 'online',
@@ -244,7 +243,7 @@ describe('Device Monitor Service', () => {
         rows: [mockDevice],
         count: 1,
       });
-      (DeviceTelemetryModel.findOne as any).mockResolvedValue(null);
+      (DeviceTelemetryModel.findAll as any).mockResolvedValue([]);
 
       await getDeviceList({ status: 'online', storeId: 5 });
 
@@ -253,6 +252,44 @@ describe('Device Monitor Service', () => {
         order: [['last_online_at', 'DESC']],
         limit: 20,
         offset: 0,
+      });
+    });
+
+    it('telemetry query count stays constant regardless of device count (no N+1)', async () => {
+      // Build N mock devices
+      const makeDevice = (id: string) => ({
+        deviceId: id,
+        toJSON: vi.fn().mockReturnValue({ deviceId: id, status: 'online' }),
+      });
+      const devices = [
+        makeDevice('dev-001'),
+        makeDevice('dev-002'),
+        makeDevice('dev-003'),
+        makeDevice('dev-004'),
+        makeDevice('dev-005'),
+      ];
+
+      (DeviceModel.findAndCountAll as any).mockResolvedValue({
+        rows: devices,
+        count: devices.length,
+      });
+      (DeviceTelemetryModel.findAll as any).mockResolvedValue([
+        { deviceId: 'dev-001', cpu: 10, createdAt: new Date() },
+        { deviceId: 'dev-002', cpu: 20, createdAt: new Date() },
+      ]);
+
+      await getDeviceList({ page: 1, pageSize: 10 });
+
+      // Critical invariant: telemetry is fetched in exactly ONE query,
+      // NOT one query per device (the previous N+1 behavior).
+      expect(DeviceTelemetryModel.findAll).toHaveBeenCalledTimes(1);
+      expect(DeviceTelemetryModel.findOne).not.toHaveBeenCalled();
+
+      // The single findAll must request all device IDs via Op.in so that
+      // the correlated subquery only walks the relevant subset.
+      const callArg = (DeviceTelemetryModel.findAll as any).mock.calls[0][0];
+      expect(callArg.where.deviceId).toEqual({
+        [Op.in]: ['dev-001', 'dev-002', 'dev-003', 'dev-004', 'dev-005'],
       });
     });
   });

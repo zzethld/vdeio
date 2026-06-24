@@ -18,7 +18,8 @@ import { checkExpiredCampaigns } from './services/campaign';
 import { startAlertScheduler } from './services/alert';
 import { startTelemetrySubscriber } from './services/device-monitor';
 import { processQueue } from './services/encryption';
-import { resolveErrorStatusCode } from './utils/app-error';
+import { resolveErrorStatusCode, AppError } from './utils/app-error';
+import { SCHEDULER_INTERVAL_MS, isSqliteDev } from './config/constants';
 
 dotenv.config();
 
@@ -77,6 +78,32 @@ app.use((_req: Request, res: Response) => {
   });
 });
 
+/**
+ * Return a canonical HTTP error name for a given status code. Used when
+ * serializing `AppError` so clients see familiar names such as
+ * "Bad Request" instead of "AppError".
+ */
+function getHttpErrorName(statusCode: number): string {
+  switch (statusCode) {
+    case 400:
+      return 'Bad Request';
+    case 401:
+      return 'Unauthorized';
+    case 403:
+      return 'Forbidden';
+    case 404:
+      return 'Not Found';
+    case 409:
+      return 'Conflict';
+    case 422:
+      return 'Unprocessable Entity';
+    case 500:
+      return 'Internal Server Error';
+    default:
+      return 'Error';
+  }
+}
+
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
@@ -84,8 +111,17 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const statusCode = resolveErrorStatusCode(err);
   const message = err.message || 'Internal server error';
 
+  // Preserve canonical HTTP error names for AppError while keeping the
+  // previous behaviour for errors that already carry their own name.
+  const error =
+    err instanceof AppError
+      ? getHttpErrorName(statusCode)
+      : err.name && err.name !== 'Error'
+        ? err.name
+        : 'Internal Server Error';
+
   res.status(statusCode).json({
-    error: err.name || 'Internal Server Error',
+    error,
     message,
   });
 });
@@ -102,7 +138,7 @@ export async function initializeApp(): Promise<void> {
   setupAssociations();
 
   // Sync models — required for SQLite (no migration runner)
-  if (process.env.DB_DIALECT === 'sqlite') {
+  if (isSqliteDev) {
     await sequelize.sync({ force: false });
     console.log('SQLite models synced.');
 
@@ -151,7 +187,7 @@ export async function startServer(): Promise<void> {
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // Campaign scheduler: check expired campaigns every 60 seconds
+    // Campaign scheduler: check expired campaigns on a fixed interval
     setInterval(async () => {
       try {
         const count = await checkExpiredCampaigns();
@@ -161,7 +197,7 @@ export async function startServer(): Promise<void> {
       } catch (err) {
         console.error('[Scheduler] Error checking expired campaigns:', err);
       }
-    }, 60000);
+    }, SCHEDULER_INTERVAL_MS.campaignExpiry);
 
     // Alert scheduler: check device status every 10 minutes
     startAlertScheduler();
@@ -170,7 +206,7 @@ export async function startServer(): Promise<void> {
     startTelemetrySubscriber();
 
     // Encryption queue: defer initial run to avoid startup noise,
-    // then process full queue (including retries) every 5 minutes
+    // then process full queue (including retries) on a fixed interval
     const ENCRYPTION_STARTUP_DELAY = parseInt(
       process.env.ENCRYPTION_STARTUP_DELAY_MS || '30000', 10
     );
@@ -185,7 +221,7 @@ export async function startServer(): Promise<void> {
       } catch (err) {
         console.error('[Encryption] Scheduled queue processing failed:', err);
       }
-    }, 5 * 60 * 1000);
+    }, SCHEDULER_INTERVAL_MS.encryptionQueue);
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

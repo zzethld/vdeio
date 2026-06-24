@@ -104,10 +104,10 @@ describe('preload', () => {
     const handler = vi.fn();
 
     const unsubscribe = api.onSyncProgress(handler);
-    expect(mocks.on).toHaveBeenCalledWith('sync-progress', expect.any(Function));
+    expect(mocks.on).toHaveBeenCalledWith('sync:progress', expect.any(Function));
     expect(typeof unsubscribe).toBe('function');
 
     unsubscribe();
-    expect(mocks.removeListener).toHaveBeenCalledWith('sync-progress', expect.any(Function));
+    expect(mocks.removeListener).toHaveBeenCalledWith('sync:progress', expect.any(Function));
   });
 });

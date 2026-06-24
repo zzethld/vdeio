@@ -31,7 +31,7 @@
             v-for="video in activeVideos"
             :key="video.id"
             :title="video.title"
-            :size="formatFileSize(video.fileSize)"
+            :size="formatBytes(video.fileSize)"
             @play="playVideo(video)"
           >
             <template #badges>
@@ -72,6 +72,7 @@ import VideoCard from '@/components/VideoCard.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
 import LoadingOverlay from '@/components/LoadingOverlay.vue';
 import request from '@/utils/request';
+import { formatBytes } from '@/utils/format-bytes';
 
 interface VideoItem {
   id: number;
@@ -131,15 +132,6 @@ function playVideo(video: VideoItem) {
       accessMode: video.accessMode,
     },
   });
-}
-
-function formatFileSize(bytes: number): string {
-  if (!bytes || bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const k = 1024;
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  const size = (bytes / Math.pow(k, i)).toFixed(1);
-  return `${size} ${units[i]}`;
 }
 
 onMounted(() => {

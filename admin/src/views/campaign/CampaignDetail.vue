@@ -1,37 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
-
-interface Video {
-  id: number;
-  title: string | null;
-  fileSize: number | null;
-  encryptStatus: string;
-}
-
-interface Store {
-  id: number;
-  name: string | null;
-  code: string | null;
-  region: string | null;
-  address: string | null;
-}
-
-interface Campaign {
-  id: number;
-  title: string | null;
-  description: string | null;
-  status: 'draft' | 'active' | 'ended' | 'archived';
-  startTime: string;
-  endTime: string;
-  createdAt: string;
-  videos: Video[];
-  stores: Store[];
-}
+import { confirmAction } from '@/utils/confirm';
+import { campaignStatusMap as statusMap, formatDate, formatFileSize } from '@/utils/format';
+import type { Campaign } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -39,25 +15,6 @@ const router = useRouter();
 const campaignId = computed(() => Number(route.params.id));
 const loading = ref(false);
 const campaign = ref<Campaign | null>(null);
-
-const statusMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
-  draft: { label: '草稿', type: 'info' },
-  active: { label: '进行中', type: 'success' },
-  ended: { label: '已结束', type: 'danger' },
-  archived: { label: '已归档', type: 'warning' },
-};
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('zh-CN');
-}
-
-function formatFileSize(bytes: number | null): string {
-  if (bytes === null || bytes === undefined) return '-';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-}
 
 async function fetchCampaign() {
   loading.value = true;
@@ -80,33 +37,30 @@ function goBack() {
 }
 
 async function handlePublish() {
-  try {
-    await ElMessageBox.confirm(
-      '确定要发布此推广计划吗？发布后将推送到所有关联门店。',
-      '确认发布',
-      { confirmButtonText: '发布', cancelButtonText: '取消', type: 'info' },
-    );
-    await request.post(`/admin/campaigns/${campaignId.value}/publish`);
-    ElMessage.success('发布成功');
-    fetchCampaign();
-  } catch {
-    // cancelled
-  }
+  await confirmAction({
+    title: '确认发布',
+    message: '确定要发布此推广计划吗？发布后将推送到所有关联门店。',
+    confirmButtonText: '发布',
+    type: 'info',
+    onConfirm: async () => {
+      await request.post(`/admin/campaigns/${campaignId.value}/publish`);
+      fetchCampaign();
+    },
+    successMsg: '发布成功',
+  });
 }
 
 async function handleEnd() {
-  try {
-    await ElMessageBox.confirm(
-      '确定要手动结束此推广计划吗？此操作不可恢复。',
-      '确认结束',
-      { confirmButtonText: '结束', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.post(`/admin/campaigns/${campaignId.value}/end`);
-    ElMessage.success('推广计划已结束');
-    fetchCampaign();
-  } catch {
-    // cancelled
-  }
+  await confirmAction({
+    title: '确认结束',
+    message: '确定要手动结束此推广计划吗？此操作不可恢复。',
+    confirmButtonText: '结束',
+    onConfirm: async () => {
+      await request.post(`/admin/campaigns/${campaignId.value}/end`);
+      fetchCampaign();
+    },
+    successMsg: '推广计划已结束',
+  });
 }
 
 async function handleRemoveVideo(videoId: number) {

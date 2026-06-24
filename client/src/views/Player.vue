@@ -74,12 +74,12 @@ const videoId = computed(() => Number(route.params.id));
 const accessMode = computed(() => (route.query.accessMode as string | undefined) || 'campaign');
 const displayTitle = computed(() => {
   const queryTitle = route.query.title as string | undefined;
-  return videoTitle.value || queryTitle || '视频播放';
+  return queryTitle || '视频播放';
 });
 
 const videoEl = ref<HTMLVideoElement | null>(null);
 const codeInput = ref<HTMLInputElement | null>(null);
-const { loading, error, videoTitle, initPlayer, destroy, retry: retryPlayer } = usePlayer();
+const { loading, error, initPlayer, destroy, retry: retryPlayer } = usePlayer();
 
 const needsCode = ref(false);
 const accessCode = ref('');

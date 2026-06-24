@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../../middleware/auth';
 import { adminAuthMiddleware } from '../../middleware/admin-auth';
+import { AppError } from '../../utils/app-error';
+import { asyncHandler } from '../../utils/async-handler';
 import {
   createCampaign,
   getCampaignById,
@@ -20,9 +22,33 @@ const router = Router();
 // Apply auth + admin middleware to all campaign routes
 router.use(authMiddleware, adminAuthMiddleware);
 
-// GET /api/v1/admin/campaigns — List campaigns
-router.get('/', async (req: Request, res: Response) => {
+/**
+ * Catches known service-layer errors and re-throws them as `AppError(400)` so
+ * the global handler returns the same status/message the old inline try/catch
+ * produced. Unexpected errors are re-thrown untouched and propagate to the
+ * global error handler as 500.
+ */
+async function withServiceError<T>(
+  promise: Promise<T>,
+  expected400Messages: string[]
+): Promise<T> {
   try {
+    return await promise;
+  } catch (err) {
+    if (err instanceof Error) {
+      const message = err.message;
+      if (expected400Messages.some((pattern) => message.includes(pattern))) {
+        throw new AppError(message, 400);
+      }
+    }
+    throw err;
+  }
+}
+
+// GET /api/v1/admin/campaigns — List campaigns
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
     const status = req.query.status as
       | 'draft'
       | 'active'
@@ -43,24 +69,20 @@ router.get('/', async (req: Request, res: Response) => {
       page,
       pageSize,
     });
-  } catch (err) {
-    console.error('List campaigns error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to list campaigns';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+  })
+);
 
 // POST /api/v1/admin/campaigns — Create campaign
-router.post('/', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
     const { title, description, startTime, endTime } = req.body;
 
     if (!title || !startTime || !endTime) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'title, startTime, and endTime are required',
-      });
-      return;
+      throw new AppError(
+        'title, startTime, and endTime are required',
+        400
+      );
     }
 
     const createdBy = req.user!.userId;
@@ -74,216 +96,177 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     res.status(201).json(campaign);
-  } catch (err) {
-    console.error('Create campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to create campaign';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+  })
+);
 
 // GET /api/v1/admin/campaigns/:id — Get campaign detail
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
+router.get(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
     const campaign = await getCampaignById(id);
     if (!campaign) {
-      res.status(404).json({ error: 'Not Found', message: 'Campaign not found' });
-      return;
+      throw new AppError('Campaign not found', 404);
     }
 
     res.json(campaign);
-  } catch (err) {
-    console.error('Get campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to get campaign';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+  })
+);
 
 // PUT /api/v1/admin/campaigns/:id — Update campaign
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
+router.put(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
     const { title, description, startTime, endTime } = req.body;
-    const campaign = await updateCampaign(id, {
-      title,
-      description,
-      startTime,
-      endTime,
-    });
+    const campaign = await withServiceError(
+      updateCampaign(id, {
+        title,
+        description,
+        startTime,
+        endTime,
+      }),
+      ['not found', 'Only draft']
+    );
 
     res.json(campaign);
-  } catch (err) {
-    console.error('Update campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to update campaign';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // DELETE /api/v1/admin/campaigns/:id — Delete campaign
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
+router.delete(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
-    await deleteCampaign(id);
+    await withServiceError(deleteCampaign(id), ['not found', 'Only draft']);
     res.status(204).send();
-  } catch (err) {
-    console.error('Delete campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to delete campaign';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // POST /api/v1/admin/campaigns/:id/videos — Add videos
-router.post('/:id/videos', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/:id/videos',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
     const { videoIds } = req.body;
     if (!Array.isArray(videoIds) || videoIds.length === 0) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'videoIds must be a non-empty array',
-      });
-      return;
+      throw new AppError('videoIds must be a non-empty array', 400);
     }
 
-    await addVideos(id, videoIds);
+    await withServiceError(addVideos(id, videoIds), [
+      'not found',
+      'Only draft',
+    ]);
     res.status(204).send();
-  } catch (err) {
-    console.error('Add videos error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to add videos';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // DELETE /api/v1/admin/campaigns/:id/videos/:videoId — Remove video
-router.delete('/:id/videos/:videoId', async (req: Request, res: Response) => {
-  try {
+router.delete(
+  '/:id/videos/:videoId',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     const videoId = parseInt(req.params.videoId, 10);
     if (isNaN(id) || isNaN(videoId)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid ID' });
-      return;
+      throw new AppError('Invalid ID', 400);
     }
 
-    await removeVideo(id, videoId);
+    await withServiceError(removeVideo(id, videoId), [
+      'not found',
+      'Only draft',
+    ]);
     res.status(204).send();
-  } catch (err) {
-    console.error('Remove video error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to remove video';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // POST /api/v1/admin/campaigns/:id/stores — Add stores
-router.post('/:id/stores', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/:id/stores',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
     const { storeIds } = req.body;
     if (!Array.isArray(storeIds) || storeIds.length === 0) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'storeIds must be a non-empty array',
-      });
-      return;
+      throw new AppError('storeIds must be a non-empty array', 400);
     }
 
-    await addStores(id, storeIds);
+    await withServiceError(addStores(id, storeIds), [
+      'not found',
+      'Only draft',
+    ]);
     res.status(204).send();
-  } catch (err) {
-    console.error('Add stores error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to add stores';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // DELETE /api/v1/admin/campaigns/:id/stores/:storeId — Remove store
-router.delete('/:id/stores/:storeId', async (req: Request, res: Response) => {
-  try {
+router.delete(
+  '/:id/stores/:storeId',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     const storeId = parseInt(req.params.storeId, 10);
     if (isNaN(id) || isNaN(storeId)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid ID' });
-      return;
+      throw new AppError('Invalid ID', 400);
     }
 
-    await removeStore(id, storeId);
+    await withServiceError(removeStore(id, storeId), [
+      'not found',
+      'Only draft',
+    ]);
     res.status(204).send();
-  } catch (err) {
-    console.error('Remove store error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to remove store';
-    const statusCode = message.includes('Only draft') || message.includes('not found') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // POST /api/v1/admin/campaigns/:id/publish — Publish campaign
-router.post('/:id/publish', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/:id/publish',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
-    const campaign = await publishCampaign(id);
+    const campaign = await withServiceError(publishCampaign(id), [
+      'not found',
+      'must have',
+    ]);
     res.json(campaign);
-  } catch (err) {
-    console.error('Publish campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to publish campaign';
-    const statusCode =
-      message.includes('not found') || message.includes('must have')
-        ? 400
-        : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 // POST /api/v1/admin/campaigns/:id/end — End campaign manually
-router.post('/:id/end', async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/:id/end',
+  asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid campaign ID' });
-      return;
+      throw new AppError('Invalid campaign ID', 400);
     }
 
-    const campaign = await endCampaign(id);
+    const campaign = await withServiceError(endCampaign(id), [
+      'not found',
+      'Only active',
+    ]);
     res.json(campaign);
-  } catch (err) {
-    console.error('End campaign error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to end campaign';
-    const statusCode = message.includes('not found') || message.includes('Only active') ? 400 : 500;
-    res.status(statusCode).json({ error: 'Bad Request', message });
-  }
-});
+  })
+);
 
 export default router;

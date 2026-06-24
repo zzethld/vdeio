@@ -1,23 +1,15 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonList from '@/components/SkeletonList.vue';
-
-interface Video {
-  id: number;
-  title: string | null;
-  fileSize: number | null;
-  encryptStatus: 'pending' | 'encrypting' | 'done' | 'failed';
-  createdAt: string;
-  resolution: string | null;
-  accessMode: 'open' | 'campaign' | 'code';
-  offlineAllowed: boolean;
-  keyTtlHours: number;
-}
+import { usePagination } from '@/composables/usePagination';
+import { confirmAction } from '@/utils/confirm';
+import { encryptStatusMap, accessModeMap, formatFileSize, formatDate } from '@/utils/format';
+import type { Video } from '@/types';
 
 const router = useRouter();
 
@@ -25,37 +17,10 @@ const loading = ref(false);
 const videos = ref<Video[]>([]);
 const total = ref(0);
 
-const query = reactive({
-  page: 1,
-  pageSize: 20,
-  search: '',
-  encryptStatus: '',
-});
-
-const encryptStatusMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
-  pending: { label: '等待加密', type: 'info' },
-  encrypting: { label: '加密中', type: 'warning' },
-  done: { label: '已完成', type: 'success' },
-  failed: { label: '加密失败', type: 'danger' },
-};
-
-const accessModeMap: Record<string, { label: string; type: '' | 'success' | 'warning' | 'danger' | 'info' }> = {
-  open: { label: '开放', type: 'success' },
-  campaign: { label: '活动推送', type: 'warning' },
-  code: { label: '序列号', type: 'danger' },
-};
-
-function formatFileSize(bytes: number | null): string {
-  if (bytes === null || bytes === undefined) return '-';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('zh-CN');
-}
+const { query, handleSearch, handlePageChange, handleSizeChange } = usePagination(
+  { search: '', encryptStatus: '' },
+  fetchVideos,
+);
 
 async function fetchVideos() {
   loading.value = true;
@@ -77,22 +42,6 @@ async function fetchVideos() {
   }
 }
 
-function handleSearch() {
-  query.page = 1;
-  fetchVideos();
-}
-
-function handlePageChange(page: number) {
-  query.page = page;
-  fetchVideos();
-}
-
-function handleSizeChange(size: number) {
-  query.pageSize = size;
-  query.page = 1;
-  fetchVideos();
-}
-
 function handleUpload() {
   router.push('/videos/upload');
 }
@@ -102,18 +51,16 @@ function handleEdit(row: Video) {
 }
 
 async function handleDelete(row: Video) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除视频「${row.title || row.id}」吗？此操作不可恢复。`,
-      '确认删除',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.delete(`/admin/videos/${row.id}`);
-    ElMessage.success('删除成功');
-    fetchVideos();
-  } catch {
-    // cancelled or error
-  }
+  await confirmAction({
+    title: '确认删除',
+    message: `确定要删除视频「${row.title || row.id}」吗？此操作不可恢复。`,
+    confirmButtonText: '删除',
+    onConfirm: async () => {
+      await request.delete(`/admin/videos/${row.id}`);
+      fetchVideos();
+    },
+    successMsg: '删除成功',
+  });
 }
 
 onMounted(fetchVideos);

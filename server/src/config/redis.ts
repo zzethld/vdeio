@@ -8,9 +8,9 @@
  */
 
 import { EventEmitter } from 'events';
+import { isSqliteDev } from './constants';
 
-const useMock =
-  process.env.REDIS_MOCK === 'true' || process.env.DB_DIALECT === 'sqlite';
+const useMock = process.env.REDIS_MOCK === 'true' || isSqliteDev;
 
 class MemoryRedis extends EventEmitter {
   private store = new Map<string, { value: string; expiresAt: number | null }>();
@@ -167,25 +167,7 @@ export async function setWithExpiry(
   await redis.setex(key, ttlSeconds, value);
 }
 
-export async function get(key: string): Promise<string | null> {
-  return redis.get(key);
-}
-
-export async function deleteKey(key: string): Promise<void> {
-  await redis.del(key);
-}
-
-export async function addToSet(
-  key: string,
-  ...members: string[]
-): Promise<void> {
-  await redis.sadd(key, ...members);
-}
-
-export async function isMemberOfSet(
-  key: string,
-  member: string
-): Promise<boolean> {
-  const result = await redis.sismember(key, member);
-  return result === 1;
-}
+// NOTE: The standalone `get` / `deleteKey` / `addToSet` / `isMemberOfSet`
+// wrappers were unreferenced — runtime code calls the `redis` proxy's methods
+// (e.g. `redis.get`, `redis.sadd`) directly. They were removed in the S11
+// dead-code pass. Do not re-add thin wrappers over the proxy.

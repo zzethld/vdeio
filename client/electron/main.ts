@@ -16,6 +16,22 @@ let mainWindow: BrowserWindow | null = null;
 let syncService: SyncService | null = null;
 let mqttBridge: MqttBridge | null = null;
 
+// --- macOS reactivation reconnect state ---
+//
+// On macOS the app stays alive in the dock after all windows close. We record
+// whether MQTT was connected so that, on `activate`, we can transparently
+// reconnect using the same device credentials the renderer previously supplied.
+//
+// `lastMqttCredentials` is held in main-process closure only and is NEVER
+// forwarded to the renderer (no IPC channel reads it), so device tokens do not
+// leak across the trust boundary.
+let mqttWasConnectedOnClose = false;
+let lastMqttCredentials: {
+  deviceId: string;
+  deviceToken: string;
+  brokerUrl?: string;
+} | null = null;
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -125,6 +141,10 @@ function registerIpcHandlers(): void {
     if (!mqttBridge) return { error: 'MqttBridge not initialized' };
     try {
       mqttBridge.connect(deviceId, deviceToken, brokerUrl);
+      // Cache credentials in main-process closure so the macOS `activate`
+      // handler can reconnect after window-all-closed. Never exposed to the
+      // renderer (no IPC reads this back).
+      lastMqttCredentials = { deviceId, deviceToken, brokerUrl };
       return { success: true };
     } catch (err) {
       return { error: (err as Error).message };
@@ -134,6 +154,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle('mqtt:disconnect', () => {
     if (!mqttBridge) return { error: 'MqttBridge not initialized' };
     mqttBridge.disconnect();
+    // Explicit renderer-initiated disconnect clears cached credentials and
+    // the reconnect flag, so macOS `activate` will not silently re-establish a
+    // connection the user intentionally closed.
+    lastMqttCredentials = null;
+    mqttWasConnectedOnClose = false;
     return { success: true };
   });
 }
@@ -166,17 +191,49 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
+    // macOS: if MQTT was connected when the last window closed and is
+    // currently disconnected, transparently reconnect with the cached
+    // device credentials. This is a no-op on Windows/Linux because
+    // `mqttWasConnectedOnClose` is only ever set on the darwin
+    // `window-all-closed` path.
+    if (
+      process.platform === 'darwin' &&
+      mqttWasConnectedOnClose &&
+      mqttBridge &&
+      !mqttBridge.isConnected() &&
+      lastMqttCredentials
+    ) {
+      try {
+        mqttBridge.connect(
+          lastMqttCredentials.deviceId,
+          lastMqttCredentials.deviceToken,
+          lastMqttCredentials.brokerUrl,
+        );
+      } catch (err) {
+        console.error('[Main] MQTT reconnect on activate failed:', (err as Error).message);
+      }
+      mqttWasConnectedOnClose = false;
+    }
   });
 });
 
 app.on('window-all-closed', () => {
+  if (process.platform === 'darwin') {
+    // macOS: keep the app alive in the dock. Record the MQTT connection state
+    // (before disconnecting) so the `activate` handler can restore it, and
+    // tear down the live MQTT socket while no window is present.
+    if (mqttBridge) {
+      mqttWasConnectedOnClose = mqttBridge.isConnected();
+      mqttBridge.disconnect();
+    }
+    return;
+  }
+  // Windows / Linux: tear everything down and quit.
   if (syncService) {
     syncService.stopAutoSync();
   }
   if (mqttBridge) {
     mqttBridge.disconnect();
   }
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });

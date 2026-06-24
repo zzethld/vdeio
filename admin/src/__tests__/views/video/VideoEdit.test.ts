@@ -176,7 +176,7 @@ describe('VideoEdit View', () => {
       expect(routerMocks.push).toHaveBeenCalledWith('/videos');
     });
 
-    it('shows error message when PUT fails', async () => {
+    it('does not duplicate error message when PUT fails (interceptor owns it)', async () => {
       requestMocks.put.mockRejectedValue({
         response: { data: { message: 'validation failed' } },
       });
@@ -188,7 +188,9 @@ describe('VideoEdit View', () => {
       await saveBtn!.trigger('click');
       await flushPromises();
 
-      expect(messageMocks.ElMessage.error).toHaveBeenCalledWith('validation failed');
+      // Error feedback is the request interceptor's responsibility; the view
+      // must not show a second ElMessage.error.
+      expect(messageMocks.ElMessage.error).not.toHaveBeenCalled();
     });
   });
 

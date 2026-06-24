@@ -105,7 +105,6 @@ describe('usePlayer', () => {
     const player = withPlayer();
     expect(player.loading).toBeDefined();
     expect(player.error).toBeDefined();
-    expect(player.videoTitle).toBeDefined();
     expect(player.initPlayer).toBeDefined();
     expect(player.destroy).toBeDefined();
     expect(player.retry).toBeDefined();

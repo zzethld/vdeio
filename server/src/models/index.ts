@@ -27,7 +27,12 @@ export const VideoAccessCodeModel = createVideoAccessCodeModel(sequelize);
 export const CampaignModel = createCampaignModel(sequelize);
 export const CampaignVideoModel = createCampaignVideoModel(sequelize);
 export const CampaignStoreModel = createCampaignStoreModel(sequelize);
+// @deprecated Category — registered for schema compatibility; no production
+// callers (see models/category.ts). Tracked for post-MVP removal.
 export const CategoryModel = createCategoryModel(sequelize);
+// @deprecated PlayLog — registered for schema compatibility; associations
+// disabled and no production callers (see models/playLog.ts). Tracked for
+// post-MVP removal.
 export const PlayLogModel = createPlayLogModel(sequelize);
 export const AdminModel = createAdminModel(sequelize);
 export const DeviceTelemetryModel = createDeviceTelemetryModel(sequelize);

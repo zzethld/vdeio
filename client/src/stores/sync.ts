@@ -1,30 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-
-export interface SyncLogEntry {
-  time: string;
-  msg: string;
-  type: 'info' | 'error' | 'success';
-}
-
-export interface SyncProgressInfo {
-  status: string;
-  current: number;
-  total: number;
-  videoId?: number;
-  videoTitle?: string;
-  phase?: string;
-  message?: string;
-}
-
-export interface SyncStatusInfo {
-  status: string;
-  lastSyncTime: string | null;
-  localCacheSize: number;
-  cachedVideoCount: number;
-  progress?: SyncProgressInfo;
-}
+import type { SyncLogEntry, SyncProgressInfo, SyncStatusInfo } from '@/types';
 
 function formatSize(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B';
@@ -34,6 +11,13 @@ function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${units[i]}`;
 }
 
+/**
+ * @deprecated This store is unused in production — sync UI calls
+ * `window.electronAPI.syncGetStatus()` / `syncStart()` inline (the engine lives
+ * in `client/electron/sync-service.ts`). No live component imports this store;
+ * kept only because tests still reference it. May be removed in a future cleanup
+ * once tests are migrated.
+ */
 export const useSyncStore = defineStore('sync', () => {
   const syncStatus = ref<SyncStatusInfo | null>(null);
   const logs = ref<SyncLogEntry[]>([]);

@@ -1,166 +1,79 @@
-import { Router, Request, Response } from 'express';
-import { Op, UniqueConstraintError } from 'sequelize';
+import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth';
 import { adminAuthMiddleware } from '../../middleware/admin-auth';
-import { StoreModel } from '../../models';
+import { asyncHandler } from '../../utils/async-handler';
+import { AppError } from '../../utils/app-error';
+import * as storeService from '../../services/store';
 
 const router = Router();
-
-// Type guard: narrows a thrown value to Sequelize's unique-constraint error.
-// Used by create-store to surface HTTP 409 instead of 500 on duplicate codes.
-function isUniqueConstraintError(err: unknown): err is UniqueConstraintError {
-  return err instanceof UniqueConstraintError;
-}
 
 // Apply auth + admin middleware to all store routes
 router.use(authMiddleware, adminAuthMiddleware);
 
+// Parse a numeric path param, throwing a 400 AppError when malformed.
+function parseId(raw: string): number {
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) {
+    throw new AppError('Invalid store ID', 400);
+  }
+  return id;
+}
+
 // GET /api/v1/admin/stores — List stores
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const pageSize = Math.max(
-      1,
-      Math.min(100, parseInt(req.query.pageSize as string, 10) || 20)
-    );
+router.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
     const search = req.query.search as string | undefined;
     const status = req.query.status as string | undefined;
 
-    const where: any = {};
-    if (status !== undefined) where.status = parseInt(status as string, 10);
-    if (search) {
-      where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { code: { [Op.like]: `%${search}%` } },
-      ];
-    }
-
-    const { rows, count } = await StoreModel.findAndCountAll({
-      where,
-      order: [['createdAt', 'DESC']],
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-    });
-
-    res.json({ rows, count, page, pageSize });
-  } catch (err) {
-    console.error('List stores error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to list stores';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+    const result = await storeService.listStores({ page, pageSize, search, status });
+    res.json(result);
+  }),
+);
 
 // GET /api/v1/admin/stores/:id — Get store
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid store ID' });
-      return;
-    }
-
-    const store = await StoreModel.findByPk(id);
-    if (!store) {
-      res.status(404).json({ error: 'Not Found', message: 'Store not found' });
-      return;
-    }
-
+router.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseId(req.params.id);
+    const store = await storeService.getStore(id);
     res.json(store);
-  } catch (err) {
-    console.error('Get store error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to get store';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+  }),
+);
 
 // POST /api/v1/admin/stores — Create store
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { name, code, region, address, status } = req.body;
-
+router.post(
+  '/',
+  asyncHandler(async (req, res) => {
+    const { name, code } = req.body;
     if (!name || !code) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'name and code are required',
-      });
-      return;
+      throw new AppError('name and code are required', 400);
     }
-
-    const store = await StoreModel.create({ name, code, region, address, status: status ?? 1 });
+    const store = await storeService.createStore(req.body);
     res.status(201).json(store);
-  } catch (err) {
-    console.error('Create store error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to create store';
-    // Sequelize wraps unique violations as UniqueConstraintError whose
-    // top-level .message is just "Validation error" — the actual hint lives in
-    // err.errors[]. Detect either the error class or any nested message.
-    let isUniqueViolation =
-      message.includes('unique') ||
-      message.includes('Duplicate') ||
-      isUniqueConstraintError(err);
-    if (!isUniqueViolation && Array.isArray((err as { errors?: unknown })?.errors)) {
-      isUniqueViolation = (
-        (err as { errors: Array<{ message?: string; type?: string }> }).errors
-      ).some(
-        (e) =>
-          (e.message ?? '').includes('unique') || e.type === 'unique violation',
-      );
-    }
-    const statusCode = isUniqueViolation ? 409 : 500;
-    res.status(statusCode).json({
-      error: statusCode === 409 ? 'Conflict' : 'Internal Server Error',
-      message,
-    });
-  }
-});
+  }),
+);
 
 // PUT /api/v1/admin/stores/:id — Update store
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid store ID' });
-      return;
-    }
-
-    const store = await StoreModel.findByPk(id);
-    if (!store) {
-      res.status(404).json({ error: 'Not Found', message: 'Store not found' });
-      return;
-    }
-
-    const { name, code, region, address, status } = req.body;
-    await store.update({ name, code, region, address, status });
+router.put(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseId(req.params.id);
+    const store = await storeService.updateStore(id, req.body);
     res.json(store);
-  } catch (err) {
-    console.error('Update store error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to update store';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+  }),
+);
 
 // DELETE /api/v1/admin/stores/:id — Delete store
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) {
-      res.status(400).json({ error: 'Bad Request', message: 'Invalid store ID' });
-      return;
-    }
-
-    const store = await StoreModel.findByPk(id);
-    if (!store) {
-      res.status(404).json({ error: 'Not Found', message: 'Store not found' });
-      return;
-    }
-
-    await store.destroy();
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Delete store error:', err);
-    const message = err instanceof Error ? err.message : 'Failed to delete store';
-    res.status(500).json({ error: 'Internal Server Error', message });
-  }
-});
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseId(req.params.id);
+    const result = await storeService.deleteStore(id);
+    res.json(result);
+  }),
+);
 
 export default router;

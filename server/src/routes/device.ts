@@ -1,13 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { calculateSyncDiff, getAuthorizedVideos, isVideoAuthorizedForStore, isVideoAuthorized, getVideoPlaylist, getVideoKey, getSegmentStream } from '../services/sync-service';
-import { DeviceModel, VideoModel, VideoAccessCodeModel } from '../models';
+import * as accessCodeService from '../services/access-code';
+import { AppError } from '../utils/app-error';
+import { DeviceModel, VideoModel } from '../models';
 import { signAccessToken } from '../utils/jwt';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { sequelize } from '../config/database';
 import { Op } from 'sequelize';
 import { storeTelemetry, TelemetryPayload } from '../services/device-monitor';
+import { isSqliteDev } from '../config/constants';
 
 const router = Router();
 router.use(authMiddleware);
@@ -144,7 +147,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     await DeviceModel.create({ deviceId, deviceName, osVersion, status: 'offline' });
     // Insert mqtt_user for EMQX auth (skip in SQLite dev mode)
-    if (process.env.DB_DIALECT !== 'sqlite') {
+    if (!isSqliteDev) {
       await sequelize.query(
         'INSERT INTO mqtt_user (username, password_hash, is_superuser) VALUES (?, ?, 0)',
         { replacements: [deviceId, mqttPasswordHash] }
@@ -183,6 +186,13 @@ router.post('/bind', async (req: Request, res: Response) => {
   } catch (err) { res.status(500).json({ error: 'Bind failed', message: (err as Error).message }); }
 });
 
+/**
+ * @deprecated Play-event reporting is a no-op in MVP. The handler validates
+ * authorization and logs to the console only — it never persists a `PlayLog`
+ * (that model is itself deprecated; see models/playLog.ts). Playback
+ * statistics are excluded from MVP scope. Kept for API-surface stability with
+ * the in-store client, which still POSTs play events.
+ */
 // POST /videos/:id/report-play — Play event logging
 // MVP: Play reporting is a no-op. Playback statistics are excluded from MVP scope.
 router.post('/videos/:id/report-play', async (req: Request, res: Response) => {
@@ -213,24 +223,19 @@ router.post('/unlock', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'videoId must be an integer' }); return;
     }
 
-    const where: Record<string, unknown> = { code, status: 'active' };
-    if (videoId !== undefined) {
-      where.videoId = videoId;
+    const record = await accessCodeService.validateAccessCode(code, storeId, videoId);
+
+    res.json({ videoId: record.video!.id, title: record.video!.title, accessMode: record.video!.accessMode });
+  } catch (err) {
+    // Preserve the historical terse `{ error: <message> }` body for service
+    // validation failures (Invalid code / expired / store mismatch / usage
+    // cap). Unexpected errors fall back to the prior `{ error, message }`.
+    if (err instanceof AppError) {
+      res.status(err.statusCode).json({ error: err.message });
+      return;
     }
-
-    const record = await VideoAccessCodeModel.findOne({
-      where,
-      include: [{ model: VideoModel, as: 'video', attributes: ['id', 'title', 'accessMode'] }],
-    });
-
-    if (!record || !record.video) { res.status(404).json({ error: 'Invalid code' }); return; }
-    if (record.storeId !== null && record.storeId !== storeId) { res.status(403).json({ error: 'Code not valid for this store' }); return; }
-    if (record.expiresAt && record.expiresAt < new Date()) { res.status(403).json({ error: 'Code expired' }); return; }
-    if (record.maxUses !== null && record.useCount >= record.maxUses) { res.status(403).json({ error: 'Code usage limit reached' }); return; }
-
-    await record.increment('useCount');
-    res.json({ videoId: record.video.id, title: record.video.title, accessMode: record.video.accessMode });
-  } catch (err) { res.status(500).json({ error: 'Failed', message: (err as Error).message }); }
+    res.status(500).json({ error: 'Failed', message: (err as Error).message });
+  }
 });
 
 export default router;

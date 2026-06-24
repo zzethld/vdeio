@@ -1,8 +1,13 @@
-import { DeviceModel, DeviceTelemetryModel } from '../models';
-import { Op } from 'sequelize';
+import { DeviceModel, DeviceTelemetryModel, DeviceTelemetry } from '../models';
+import { Op, Sequelize, WhereOptions, Attributes } from 'sequelize';
 import { publish } from './mqtt-publisher';
 import mqtt from 'mqtt';
 import { config } from '../config';
+import {
+  DEFAULT_PAGE_SIZE,
+  TELEMETRY_HISTORY_MAX_LIMIT,
+  isSqliteDev,
+} from '../config/constants';
 
 export interface TelemetryPayload {
   cpu?: number;
@@ -125,12 +130,18 @@ export async function getDeviceList(filters: DeviceFilters = {}) {
     status,
     storeId,
     page = 1,
-    pageSize = 20,
+    pageSize = DEFAULT_PAGE_SIZE,
   } = filters;
 
-  const where: any = {};
-  if (status) where.status = status;
-  if (storeId) where.store_id = storeId;
+  // NOTE: `store_id` is the snake_case column name retained verbatim for
+  // compatibility with callers/tests that assert on this exact where shape.
+  // Bare `WhereOptions` (default generic) is used because the clause mixes a
+  // camelCase attribute (`status`) with a snake_case column key (`store_id`),
+  // which a model-attribute-keyed WhereOptions rejects.
+  const where: WhereOptions = {
+    ...(status ? { status } : {}),
+    ...(storeId ? { store_id: storeId } : {}),
+  };
 
   const { rows, count } = await DeviceModel.findAndCountAll({
     where,
@@ -139,24 +150,33 @@ export async function getDeviceList(filters: DeviceFilters = {}) {
     offset: (page - 1) * pageSize,
   });
 
-  // Fetch latest telemetry for each device (MySQL compatible — no GROUP BY)
+  // Fetch latest telemetry for each device.
+  // Single query (NOT an N+1 loop) using a correlated subquery that selects
+  // the row whose `created_at` equals MAX(created_at) for that device.
+  // This pattern is compatible with strict MySQL sql_mode=only_full_group_by
+  // and SQLite (SQLite accepts backtick identifier quoting as an extension).
   const deviceIds = rows.map((d) => d.deviceId);
   if (deviceIds.length === 0) {
     return { rows: rows.map((device) => ({ ...device.toJSON(), latestTelemetry: null })), count };
   }
 
-  // Get the most recent telemetry ID per device via raw query
-  const latestTelemetries: any[] = [];
-  for (const deviceId of deviceIds) {
-    const t = await DeviceTelemetryModel.findOne({
-      where: { deviceId },
-      order: [['created_at', 'DESC']],
-      raw: true,
-    });
-    if (t) latestTelemetries.push(t);
-  }
+  const latestTelemetries: Attributes<DeviceTelemetry>[] = await DeviceTelemetryModel.findAll({
+    where: {
+      deviceId: { [Op.in]: deviceIds },
+      [Op.and]: Sequelize.where(
+        Sequelize.col('created_at'),
+        Op.eq,
+        Sequelize.literal(`(
+          SELECT MAX(dt2.created_at)
+          FROM device_telemetries AS dt2
+          WHERE dt2.device_id = \`DeviceTelemetry\`.\`device_id\`
+        )`)
+      ),
+    },
+    raw: true,
+  });
 
-  const telemetryMap = new Map<string, any>();
+  const telemetryMap = new Map<string, Attributes<DeviceTelemetry>>();
   for (const t of latestTelemetries) {
     telemetryMap.set(t.deviceId, t);
   }
@@ -180,7 +200,7 @@ export async function getDeviceList(filters: DeviceFilters = {}) {
 export async function getDeviceTelemetry(
   deviceId: string,
   limit: number = 100
-): Promise<any[]> {
+): Promise<Attributes<DeviceTelemetry>[]> {
   const device = await DeviceModel.findOne({ where: { deviceId } });
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
@@ -189,7 +209,7 @@ export async function getDeviceTelemetry(
   const telemetries = await DeviceTelemetryModel.findAll({
     where: { deviceId },
     order: [['created_at', 'DESC']],
-    limit: Math.min(limit, 500),
+    limit: Math.min(limit, TELEMETRY_HISTORY_MAX_LIMIT),
   });
 
   return telemetries.map((t) => t.toJSON());
@@ -208,7 +228,7 @@ export function startTelemetrySubscriber(): void {
   }
 
   // Skip MQTT in dev mode when using SQLite (no EMQX available)
-  if (process.env.DB_DIALECT === 'sqlite') {
+  if (isSqliteDev) {
     console.log('[DeviceMonitor] Skipping MQTT subscriber (dev mode with SQLite)');
     return;
   }

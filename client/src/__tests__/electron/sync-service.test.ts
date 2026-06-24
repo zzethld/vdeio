@@ -16,6 +16,7 @@ describe('SyncService', () => {
     { statusCode?: number; body: Buffer | Buffer[]; headers?: Record<string, string> }
   >;
   let execQueue: Array<{ stdout: string }>;
+  let statfsQueue: Array<{ freeBytes: number; totalBytes: number }>;
   let requests: Array<{ url: string; options: unknown; writes: Buffer[] }>;
 
   beforeEach(async () => {
@@ -25,6 +26,7 @@ describe('SyncService', () => {
     dirs = {};
     httpResponses = {};
     execQueue = [];
+    statfsQueue = [];
     requests = [];
 
     vi.doMock('fs', () => ({
@@ -57,6 +59,27 @@ describe('SyncService', () => {
       rmSync: vi.fn((p: string) => {
         delete files[p];
         delete dirs[p];
+      }),
+      // fs.statfs is the disk-usage source on win32 (see lib/disk-utils.ts).
+      // Callback-style so promisify(fs.statfs) in disk-utils works unchanged.
+      statfs: vi.fn((
+        _p: string,
+        callback: (
+          err: NodeJS.ErrnoException | null,
+          stats: { bsize: number; blocks: number; bfree: number; bavail: number },
+        ) => void,
+      ) => {
+        const resp = statfsQueue.shift();
+        if (!resp) {
+          callback(null, { bsize: 1, blocks: 0, bfree: 0, bavail: 0 });
+          return;
+        }
+        callback(null, {
+          bsize: 1,
+          blocks: resp.totalBytes,
+          bfree: resp.freeBytes,
+          bavail: resp.freeBytes,
+        });
       }),
     }));
 
@@ -320,18 +343,27 @@ describe('SyncService', () => {
       files['/data/vdeio/videos/20'] = { atime: Date.now() - 5000 } as unknown as Buffer;
       files['/data/vdeio/videos/30'] = { atime: Date.now() } as unknown as Buffer;
 
-      const highUsageStdout =
-        process.platform === 'win32'
-          ? 'FreeSpace=5000000000\nSize=100000000000\n'
-          : 'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 95000000   5000000  95% /\n';
+      const highFree = 5000000000;
+      const highTotal = 100000000000;
 
-      // First check: 95% -> eviction path
-      execQueue.push({ stdout: highUsageStdout });
-      // Eviction loop checks usage for each evictable directory
-      execQueue.push({ stdout: highUsageStdout });
-      execQueue.push({ stdout: highUsageStdout });
-      // Final check still 95%
-      execQueue.push({ stdout: highUsageStdout });
+      if (process.platform === 'win32') {
+        // win32 uses fs.statfs (see lib/disk-utils.ts) — 4 lookups: initial check,
+        // one per evictable dir, then a final re-check, all still at 95%.
+        statfsQueue.push({ freeBytes: highFree, totalBytes: highTotal });
+        statfsQueue.push({ freeBytes: highFree, totalBytes: highTotal });
+        statfsQueue.push({ freeBytes: highFree, totalBytes: highTotal });
+        statfsQueue.push({ freeBytes: highFree, totalBytes: highTotal });
+      } else {
+        const highUsageStdout =
+          'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 95000000   5000000  95% /\n';
+        // First check: 95% -> eviction path
+        execQueue.push({ stdout: highUsageStdout });
+        // Eviction loop checks usage for each evictable directory
+        execQueue.push({ stdout: highUsageStdout });
+        execQueue.push({ stdout: highUsageStdout });
+        // Final check still 95%
+        execQueue.push({ stdout: highUsageStdout });
+      }
 
       const service = new SyncService('/data/vdeio');
       const ok = await (service as unknown as { checkDiskSpace: (downloads: unknown[]) => Promise<boolean> }).checkDiskSpace([
@@ -342,11 +374,17 @@ describe('SyncService', () => {
     });
 
     it('warns when disk usage is above 85% but still allows download', async () => {
-      const warnStdout =
-        process.platform === 'win32'
-          ? 'FreeSpace=12000000000\nSize=100000000000\n'
-          : 'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 88000000   12000000  88% /\n';
-      execQueue.push({ stdout: warnStdout }); // 88% used
+      const warnFree = 12000000000;
+      const warnTotal = 100000000000;
+
+      if (process.platform === 'win32') {
+        // 88% used via fs.statfs
+        statfsQueue.push({ freeBytes: warnFree, totalBytes: warnTotal });
+      } else {
+        const warnStdout =
+          'Filesystem     1K-blocks     Used Available Use% Mounted on\n/dev/sda1      100000000 88000000   12000000  88% /\n';
+        execQueue.push({ stdout: warnStdout }); // 88% used
+      }
 
       const service = new SyncService('/data/vdeio');
       service.setMainWindow({

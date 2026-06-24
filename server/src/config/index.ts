@@ -2,52 +2,20 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/**
+ * Lightweight config facade.
+ *
+ * Most subsystems read their env vars directly at the call site (see
+ * `config/database.ts`, `config/redis.ts`, `config/minio.ts`, `utils/jwt.ts`).
+ * Only values consumed by multiple modules via the `config` object belong here.
+ *
+ * The previously-present `db`, `redis`, `minio`, `jwt`, `server`, and
+ * `security` blocks were dead — no production code read them — and were
+ * removed in the S11 dead-code pass. Do not re-add them; centralize env reads
+ * in `config/constants.ts` instead.
+ */
 export const config = {
-  // Database
-  db: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306', 10),
-    name: process.env.DB_NAME || 'vdeio',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-  },
-
-  // Redis
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  },
-
-  // MinIO
-  minio: {
-    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT || '9000', 10),
-    rootUser: process.env.MINIO_ROOT_USER || 'admin',
-    rootPassword: process.env.MINIO_ROOT_PASSWORD || 'vdeio_minio_2024',
-    useSSL: false,
-  },
-
-  // JWT
-  jwt: {
-    secret: process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev_jwt_refresh_secret_change_in_production',
-    accessExpiry: '2h',
-    refreshExpiry: '7d',
-    algorithm: 'HS512' as const,
-  },
-
-  // Server
-  server: {
-    port: parseInt(process.env.SERVER_PORT || '3000', 10),
-    env: process.env.NODE_ENV || 'development',
-  },
-
-  // Security
-  security: {
-    masterKey: process.env.MASTER_KEY || 'dev_master_key_32_bytes_pad_here!!',
-  },
-
-  // MQTT
+  // MQTT — used by `services/mqtt-publisher.ts` and `services/device-monitor.ts`
   mqtt: {
     brokerUrl: process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883',
     username: process.env.MQTT_USERNAME || '',
@@ -56,11 +24,5 @@ export const config = {
 };
 
 export { sequelize } from './database';
-export { redis, setWithExpiry, get, deleteKey, addToSet, isMemberOfSet } from './redis';
-export {
-  minioClient,
-  presignedGetUrl,
-  putObject,
-  removeObject,
-  bucketExists,
-} from './minio';
+export { redis, setWithExpiry } from './redis';
+export { minioClient } from './minio';

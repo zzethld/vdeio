@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import type { UploadFile } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 
@@ -36,6 +37,10 @@ const fileSize = computed(() => {
 function handleFileChange(uploadFile: File) {
   file.value = uploadFile;
   resetUpload();
+}
+
+function onUploadChange(uploadFile: UploadFile) {
+  if (uploadFile.raw) handleFileChange(uploadFile.raw);
 }
 
 function handleFileRemove() {
@@ -98,9 +103,8 @@ async function startUpload() {
     createdVideoId.value = completeRes.data.videoId;
     uploadComplete.value = true;
     ElMessage.success('视频上传成功');
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || '上传失败';
-    ElMessage.error(msg);
+  } catch {
+    // Error message already shown by request interceptor.
   } finally {
     uploading.value = false;
   }
@@ -125,7 +129,7 @@ function goToVideoList() {
       <el-upload
         :auto-upload="false"
         :limit="1"
-        :on-change="(f: any) => handleFileChange(f.raw)"
+        :on-change="onUploadChange"
         :on-remove="handleFileRemove"
         accept="video/*"
         drag

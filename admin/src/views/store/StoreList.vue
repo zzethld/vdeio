@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonList from '@/components/SkeletonList.vue';
-
-interface Store {
-  id: number;
-  name: string;
-  code: string;
-  region: string;
-  address: string;
-  status: number;
-}
+import { usePagination } from '@/composables/usePagination';
+import { confirmAction } from '@/utils/confirm';
+import { storeStatusMap as statusMap } from '@/utils/format';
+import type { Store } from '@/types';
 
 const loading = ref(false);
 const stores = ref<Store[]>([]);
@@ -22,11 +17,10 @@ const dialogVisible = ref(false);
 const dialogTitle = ref('新增门店');
 const editingId = ref<number | null>(null);
 
-const query = reactive({
-  page: 1,
-  pageSize: 20,
-  search: '',
-});
+const { query, handleSearch, handlePageChange, handleSizeChange } = usePagination(
+  { search: '' },
+  fetchStores,
+);
 
 const form = reactive({
   name: '',
@@ -35,11 +29,6 @@ const form = reactive({
   address: '',
   status: 1,
 });
-
-const statusMap: Record<number, { label: string; type: '' | 'success' | 'danger' }> = {
-  0: { label: '已禁用', type: 'danger' },
-  1: { label: '正常', type: 'success' },
-};
 
 function resetForm() {
   form.name = '';
@@ -67,22 +56,6 @@ async function fetchStores() {
   } finally {
     loading.value = false;
   }
-}
-
-function handleSearch() {
-  query.page = 1;
-  fetchStores();
-}
-
-function handlePageChange(page: number) {
-  query.page = page;
-  fetchStores();
-}
-
-function handleSizeChange(size: number) {
-  query.pageSize = size;
-  query.page = 1;
-  fetchStores();
 }
 
 function handleAdd() {
@@ -123,35 +96,30 @@ async function handleSave() {
 }
 
 async function handleDelete(row: Store) {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除门店「${row.name || row.code}」吗？`,
-      '确认删除',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.delete(`/admin/stores/${row.id}`);
-    ElMessage.success('删除成功');
-    fetchStores();
-  } catch {
-    // cancelled or error
-  }
+  await confirmAction({
+    title: '确认删除',
+    message: `确定要删除门店「${row.name || row.code}」吗？`,
+    confirmButtonText: '删除',
+    onConfirm: async () => {
+      await request.delete(`/admin/stores/${row.id}`);
+      fetchStores();
+    },
+    successMsg: '删除成功',
+  });
 }
 
 async function handleToggleStatus(row: Store) {
   const newStatus = row.status === 1 ? 0 : 1;
   const label = newStatus === 1 ? '启用' : '禁用';
-  try {
-    await ElMessageBox.confirm(
-      `确定要${label}门店「${row.name || row.code}」吗？`,
-      `确认${label}`,
-      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.put(`/admin/stores/${row.id}`, { status: newStatus });
-    ElMessage.success(`${label}成功`);
-    fetchStores();
-  } catch {
-    // cancelled or error
-  }
+  await confirmAction({
+    title: `确认${label}`,
+    message: `确定要${label}门店「${row.name || row.code}」吗？`,
+    onConfirm: async () => {
+      await request.put(`/admin/stores/${row.id}`, { status: newStatus });
+      fetchStores();
+    },
+    successMsg: `${label}成功`,
+  });
 }
 
 onMounted(fetchStores);

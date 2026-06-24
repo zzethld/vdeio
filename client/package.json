@@ -6,9 +6,7 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "dev": "vite",
-    "dev:electron": "vite --config vite.config.ts && electron .",
     "build": "vue-tsc --noEmit && vite build && tsc -p tsconfig.electron.json",
-    "build:electron": "tsc -p tsconfig.electron.json",
     "preview": "vite preview",
     "electron:dev": "node electron-dev.mjs",
     "electron:build": "npm run build && electron-builder",
@@ -30,7 +28,6 @@
     "@vue/test-utils": "^2.4.11",
     "electron": "^32.3.3",
     "electron-builder": "^24.13.0",
-    "happy-dom": "^20.10.2",
     "jsdom": "^29.1.1",
     "ts-node": "^10.9.0",
     "typescript": "^5.5.0",

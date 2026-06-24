@@ -13,7 +13,6 @@ vi.mock('../../models', () => ({
 }));
 
 vi.mock('../../config/minio', () => ({
-  presignedGetUrl: vi.fn().mockResolvedValue('https://minio.example.com/video-encrypted/videos/1/playlist.m3u8'),
   minioClient: {
     getObject: vi.fn(),
   },

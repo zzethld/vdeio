@@ -177,7 +177,7 @@ describe('VideoUpload View', () => {
   });
 
   describe('startUpload — failure', () => {
-    it('shows error message on init failure', async () => {
+    it('does not duplicate error message on init failure (interceptor owns it)', async () => {
       requestMocks.post.mockRejectedValue(
         Object.assign(new Error('init fail'), {
           response: { data: { message: 'init error' } },
@@ -196,7 +196,9 @@ describe('VideoUpload View', () => {
       await startBtn?.trigger('click');
       await flushPromises();
 
-      expect(messageMocks.ElMessage.error).toHaveBeenCalledWith('init error');
+      // Error feedback is the request interceptor's responsibility; the view
+      // must not show a second ElMessage.error.
+      expect(messageMocks.ElMessage.error).not.toHaveBeenCalled();
     });
   });
 });

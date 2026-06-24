@@ -26,10 +26,6 @@ vi.mock('../../config/redis', () => ({
   },
   getRedis: vi.fn(),
   setWithExpiry: vi.fn(),
-  get: vi.fn(),
-  deleteKey: vi.fn(),
-  addToSet: vi.fn(),
-  isMemberOfSet: vi.fn(),
 }));
 
 import jwt from 'jsonwebtoken';

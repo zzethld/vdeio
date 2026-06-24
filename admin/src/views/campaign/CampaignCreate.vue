@@ -7,13 +7,7 @@ import request from '@/utils/request';
 import StoreSelector from '@/components/StoreSelector.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
-
-interface Video {
-  id: number;
-  title: string | null;
-  fileSize: number | null;
-  encryptStatus: string;
-}
+import type { Video } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
@@ -176,9 +170,8 @@ async function handleSave() {
       ElMessage.success('创建成功');
     }
     router.push('/campaigns');
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || '保存失败';
-    ElMessage.error(msg);
+  } catch {
+    // Error message already shown by request interceptor.
   } finally {
     saving.value = false;
   }

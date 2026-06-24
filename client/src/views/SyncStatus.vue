@@ -73,37 +73,18 @@ import { useAuthStore } from '@/stores/auth';
 import AppHeader from '@/components/AppHeader.vue';
 import StatusBadge from '@/components/StatusBadge.vue';
 import ProgressBar from '@/components/ProgressBar.vue';
-
-interface LogEntry {
-  time: string;
-  msg: string;
-  type: 'info' | 'error' | 'success';
-}
+import type { SyncLogEntry, SyncStatusInfo } from '@/types';
+import { formatBytes } from '@/utils/format-bytes';
 
 const authStore = useAuthStore();
 
-const syncStatus = ref<{
-  status: string;
-  lastSyncTime: string | null;
-  localCacheSize: number;
-  cachedVideoCount: number;
-  progress?: {
-    status: string;
-    current: number;
-    total: number;
-    videoId?: number;
-    videoTitle?: string;
-    phase?: string;
-    message?: string;
-  };
-} | null>(null);
+const syncStatus = ref<SyncStatusInfo | null>(null);
 
 const progress = computed(() => syncStatus.value?.progress);
 const isSyncing = computed(() => progress.value?.status === 'syncing');
-const logs = ref<LogEntry[]>([]);
+const logs = ref<SyncLogEntry[]>([]);
 
 let cleanupProgress: (() => void) | null = null;
-let cleanupNeedToken: (() => void) | null = null;
 
 const statusText = computed(() => {
   const s = syncStatus.value?.status;
@@ -130,14 +111,7 @@ const lastSyncText = computed(() => {
   }
 });
 
-const cacheSizeText = computed(() => {
-  const size = syncStatus.value?.localCacheSize || 0;
-  if (size === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const k = 1024;
-  const i = Math.floor(Math.log(size) / Math.log(k));
-  return `${(size / Math.pow(k, i)).toFixed(1)} ${units[i]}`;
-});
+const cacheSizeText = computed(() => formatBytes(syncStatus.value?.localCacheSize || 0));
 
 const phaseText = computed(() => {
   const p = progress.value?.phase;
@@ -153,7 +127,7 @@ const progressPercent = computed(() => {
   return Math.round((progress.value.current / progress.value.total) * 100);
 });
 
-function addLog(msg: string, type: LogEntry['type'] = 'info') {
+function addLog(msg: string, type: SyncLogEntry['type'] = 'info') {
   const time = new Date().toLocaleTimeString('zh-CN');
   logs.value.unshift({ time, msg, type });
   if (logs.value.length > 50) logs.value.pop();
@@ -207,13 +181,6 @@ function setupListeners() {
       addLog(data.message || '同步错误', 'error');
     }
   });
-
-  cleanupNeedToken = window.electronAPI.onSyncNeedToken(() => {
-    const token = authStore.accessToken;
-    if (token && window.electronAPI) {
-      window.electronAPI.syncProvideToken(token);
-    }
-  });
 }
 
 onMounted(() => {
@@ -223,7 +190,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (cleanupProgress) cleanupProgress();
-  if (cleanupNeedToken) cleanupNeedToken();
 });
 </script>
 

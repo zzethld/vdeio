@@ -15,6 +15,14 @@ export interface PlayLogAttributes {
 
 export interface PlayLogCreationAttributes extends Optional<PlayLogAttributes, 'id' | 'createdAt'> {}
 
+/**
+ * @deprecated PlayLog is registered but has zero production runtime references.
+ * The `play_logs` table is still created by migration `001_create_tables.sql`,
+ * and associations are intentionally disabled (see `models/index.ts`). Playback
+ * statistics were excluded from MVP scope. Do not add new callers; this model
+ * is retained only so the table definition stays in sync with the schema.
+ * Tracked for removal in a post-MVP cleanup once playback reporting is built.
+ */
 export class PlayLog extends Model<InferAttributes<PlayLog>, InferCreationAttributes<PlayLog>> {
   declare id: CreationOptional<number>;
   declare userId: number | null;

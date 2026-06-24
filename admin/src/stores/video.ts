@@ -1,18 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import request from '@/utils/request';
-
-export interface Video {
-  id: number;
-  title: string | null;
-  fileSize: number | null;
-  encryptStatus: 'pending' | 'encrypting' | 'done' | 'failed';
-  createdAt: string;
-  resolution: string | null;
-  accessMode: 'open' | 'campaign' | 'code';
-  offlineAllowed: boolean;
-  keyTtlHours: number;
-}
+import type { Video } from '@/types';
 
 export interface VideoListParams {
   page?: number;
@@ -30,6 +19,10 @@ export interface VideoPolicyPayload {
   categoryId?: number;
 }
 
+/**
+ * @deprecated This store is unused — views currently use request directly.
+ * May be removed in a future cleanup. Tests still reference it.
+ */
 export const useVideoStore = defineStore('video', () => {
   const videos = ref<Video[]>([]);
   const total = ref(0);

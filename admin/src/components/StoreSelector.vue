@@ -2,15 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import request from '@/utils/request';
 import EmptyState from '@/components/EmptyState.vue';
-
-interface Store {
-  id: number;
-  name: string;
-  code: string;
-  region: string;
-  address: string;
-  status: number;
-}
+import type { Store } from '@/types';
 
 const props = defineProps<{
   modelValue: number[];

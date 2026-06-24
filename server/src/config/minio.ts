@@ -1,5 +1,4 @@
 import * as Minio from 'minio';
-import { Readable } from 'stream';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -17,35 +16,13 @@ export const minioClient = new Minio.Client({
   secretKey: minioSecretKey,
 });
 
-export async function presignedGetUrl(
-  bucket: string,
-  key: string,
-  expirySeconds: number
-): Promise<string> {
-  return minioClient.presignedGetObject(bucket, key, expirySeconds);
-}
-
-export async function putObject(
-  bucket: string,
-  key: string,
-  stream: Readable,
-  metadata?: object
-) {
-  const result = await minioClient.putObject(bucket, key, stream, undefined, metadata);
-  return result;
-}
-
-export async function removeObject(
-  bucket: string,
-  key: string
-): Promise<void> {
-  await minioClient.removeObject(bucket, key);
-}
-
-export async function bucketExists(bucket: string): Promise<boolean> {
-  return minioClient.bucketExists(bucket);
-}
-
+/**
+ * Ensure a bucket exists, creating it if missing.
+ *
+ * Callers invoke the underlying `minioClient.*` methods directly; the previous
+ * `presignedGetUrl` / `putObject` / `removeObject` / `bucketExists` wrappers
+ * were unreferenced and were removed in the S11 dead-code pass.
+ */
 export async function ensureBucket(bucket: string): Promise<void> {
   const exists = await minioClient.bucketExists(bucket).catch(() => false);
   if (!exists) {

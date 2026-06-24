@@ -10,6 +10,13 @@ export interface CategoryAttributes {
 
 export interface CategoryCreationAttributes extends Optional<CategoryAttributes, 'id' | 'parentId' | 'sortOrder' | 'createdAt'> {}
 
+/**
+ * @deprecated Category is registered (and associated with Video) but has zero
+ * production runtime references — no service or route queries or mutates
+ * categories. The `categories` table is still created by migration
+ * `001_create_tables.sql`. Retained for schema compatibility; do not add new
+ * callers. Tracked for removal in a post-MVP cleanup.
+ */
 export class Category extends Model<InferAttributes<Category>, InferCreationAttributes<Category>> {
   declare id: CreationOptional<number>;
   declare name: string | null;

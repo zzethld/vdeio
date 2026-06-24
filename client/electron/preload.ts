@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { SyncProgressInfo, SyncStatusInfo } from '../src/types';
 
 const electronAPI = {
   getDeviceId: (): Promise<string> => ipcRenderer.invoke('get-device-id'),
@@ -8,21 +9,7 @@ const electronAPI = {
   // Sync APIs
   syncStart: (accessToken: string): Promise<{ success?: boolean; error?: string }> =>
     ipcRenderer.invoke('sync:start', accessToken),
-  syncGetStatus: (): Promise<{
-    status: string;
-    lastSyncTime: string | null;
-    localCacheSize: number;
-    cachedVideoCount: number;
-    progress?: {
-      status: string;
-      current: number;
-      total: number;
-      videoId?: number;
-      videoTitle?: string;
-      phase?: string;
-      message?: string;
-    };
-  }> => ipcRenderer.invoke('sync:status'),
+  syncGetStatus: (): Promise<SyncStatusInfo> => ipcRenderer.invoke('sync:status'),
 
   // Send access token to main process for auto-sync
   syncProvideToken: (accessToken: string): void => {
@@ -30,13 +17,13 @@ const electronAPI = {
   },
 
   // Event listeners
-  onSyncProgress: (callback: (progress: unknown) => void): () => void => {
-    const handler = (_event: Electron.IpcRendererEvent, data: unknown) => {
+  onSyncProgress: (callback: (progress: SyncProgressInfo) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, data: SyncProgressInfo) => {
       callback(data);
     };
-    ipcRenderer.on('sync-progress', handler);
+    ipcRenderer.on('sync:progress', handler);
     return () => {
-      ipcRenderer.removeListener('sync-progress', handler);
+      ipcRenderer.removeListener('sync:progress', handler);
     };
   },
 
@@ -67,6 +54,19 @@ const electronAPI = {
     ipcRenderer.on('sync:need-token', handler);
     return () => {
       ipcRenderer.removeListener('sync:need-token', handler);
+    };
+  },
+
+  // Disk-usage warning — fired by SyncService.checkDiskSpace when usage
+  // crosses the 85% warning threshold (see electron/sync-service.ts). Payload
+  // mirrors what the main process sends: { usagePercent: number }.
+  onSyncDiskWarning: (callback: (data: { usagePercent: number }) => void): () => void => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { usagePercent: number }) => {
+      callback(data);
+    };
+    ipcRenderer.on('sync:disk-warning', handler);
+    return () => {
+      ipcRenderer.removeListener('sync:disk-warning', handler);
     };
   },
 

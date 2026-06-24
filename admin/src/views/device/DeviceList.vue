@@ -1,23 +1,14 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ref, onMounted } from 'vue';
+import { ElMessage } from 'element-plus';
 import request from '@/utils/request';
 import PageHeader from '@/components/PageHeader.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import SkeletonList from '@/components/SkeletonList.vue';
-
-interface Device {
-  id: number;
-  deviceId: string;
-  storeId: number | null;
-  deviceName: string | null;
-  osVersion: string | null;
-  appVersion: string | null;
-  lastOnlineAt: string | null;
-  status: 'online' | 'offline';
-  localPaths: Record<string, string>;
-  createdAt: string;
-}
+import { usePagination } from '@/composables/usePagination';
+import { confirmAction } from '@/utils/confirm';
+import { formatDate } from '@/utils/format';
+import type { Device } from '@/types';
 
 interface TelemetryEntry {
   id: number;
@@ -37,16 +28,10 @@ const telemetryLoading = ref(false);
 const telemetryDeviceId = ref('');
 const telemetries = ref<TelemetryEntry[]>([]);
 
-const query = reactive({
-  page: 1,
-  pageSize: 20,
-  status: '',
-});
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleString('zh-CN');
-}
+const { query, handleFilter, handlePageChange, handleSizeChange } = usePagination(
+  { status: '' },
+  fetchDevices,
+);
 
 async function fetchDevices() {
   loading.value = true;
@@ -67,39 +52,20 @@ async function fetchDevices() {
   }
 }
 
-function handleFilter() {
-  query.page = 1;
-  fetchDevices();
-}
-
-function handlePageChange(page: number) {
-  query.page = page;
-  fetchDevices();
-}
-
-function handleSizeChange(size: number) {
-  query.pageSize = size;
-  query.page = 1;
-  fetchDevices();
-}
-
 async function sendCommand(deviceId: string, command: string) {
   const commandLabels: Record<string, string> = {
     restart: '重启',
     sync: '同步',
     'clear-cache': '清理缓存',
   };
-  try {
-    await ElMessageBox.confirm(
-      `确定要向设备 ${deviceId.slice(0, 8)}... 发送「${commandLabels[command] || command}」命令吗？`,
-      '确认发送',
-      { confirmButtonText: '发送', cancelButtonText: '取消', type: 'warning' },
-    );
-    await request.post(`/admin/devices/${deviceId}/command`, { command });
-    ElMessage.success(`「${commandLabels[command] || command}」命令已发送`);
-  } catch {
-    // cancelled or error
-  }
+  const label = commandLabels[command] || command;
+  await confirmAction({
+    title: '确认发送',
+    message: `确定要向设备 ${deviceId.slice(0, 8)}... 发送「${label}」命令吗？`,
+    confirmButtonText: '发送',
+    onConfirm: () => request.post(`/admin/devices/${deviceId}/command`, { command }),
+    successMsg: `「${label}」命令已发送`,
+  });
 }
 
 async function showTelemetry(deviceId: string) {

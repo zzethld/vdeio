@@ -1,16 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import request from '@/utils/request';
-
-export interface Campaign {
-  id: number;
-  title: string | null;
-  description: string | null;
-  status: 'draft' | 'active' | 'ended' | 'archived';
-  startTime: string;
-  endTime: string;
-  createdAt: string;
-}
+import type { Campaign } from '@/types';
 
 export interface CampaignListParams {
   page?: number;
@@ -25,6 +16,10 @@ export interface CampaignPayload {
   endTime: string;
 }
 
+/**
+ * @deprecated This store is unused — views currently use request directly.
+ * May be removed in a future cleanup. Tests still reference it.
+ */
 export const useCampaignStore = defineStore('campaign', () => {
   const campaigns = ref<Campaign[]>([]);
   const total = ref(0);

@@ -32,9 +32,8 @@ async function handleLogin() {
     ElMessage.success('登录成功');
     const redirect = (route.query.redirect as string) || '/dashboard';
     router.push(redirect);
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || '登录失败，请检查用户名和密码';
-    ElMessage.error(msg);
+  } catch {
+    // Error message already shown by request interceptor.
   } finally {
     loading.value = false;
   }

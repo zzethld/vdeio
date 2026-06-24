@@ -76,12 +76,16 @@ router.post('/login', async (req: Request, res: Response) => {
       lockedUntil: null,
     });
 
-    // Sign JWT with role: 'admin'
+    // Sign JWT carrying the admin's actual DB role (`'admin'` or
+    // `'super_admin'`) so `adminAuthMiddleware` (which accepts both) and any
+    // downstream role checks see the real value rather than a hardcoded
+    // `'admin'`. The login response below returns the same `admin.role`, so
+    // the token and JSON stay consistent.
     const jwtPayload = {
       userId: admin.id,
       storeId: null as number | null,
       deviceId: null as string | null,
-      role: 'admin' as const,
+      role: admin.role,
     };
 
     const accessToken = signAccessToken(jwtPayload);

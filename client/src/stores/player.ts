@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
+/**
+ * @deprecated This store is unused in production — playback components call
+ * `window.electronAPI` and the player engine (`client/electron/`) directly.
+ * `savePlaybackPosition`/`getPlaybackPosition` use localStorage but no live
+ * component invokes them. Kept only because tests still reference it.
+ * May be removed in a future cleanup once tests are migrated.
+ */
 export const usePlayerStore = defineStore('player', () => {
   const loading = ref(false);
   const error = ref('');

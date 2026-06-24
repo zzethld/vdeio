@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { Op, WhereOptions, Attributes } from 'sequelize';
 import {
   CampaignModel,
   CampaignVideoModel,
@@ -11,6 +11,10 @@ import {
   notifyStoreSync,
   notifyCampaignExpired,
 } from './mqtt-publisher';
+import {
+  CAMPAIGN_DRAFT_STATUS,
+  DEFAULT_PAGE_SIZE,
+} from '../config/constants';
 
 export interface CreateCampaignInput {
   title: string;
@@ -42,7 +46,7 @@ export async function createCampaign(
     startTime: new Date(data.startTime),
     endTime: new Date(data.endTime),
     createdBy: data.createdBy,
-    status: 'draft',
+    status: CAMPAIGN_DRAFT_STATUS,
   });
   return campaign;
 }
@@ -60,8 +64,8 @@ export async function getCampaignById(id: number): Promise<Campaign | null> {
 export async function listCampaigns(
   options: ListCampaignOptions = {}
 ): Promise<{ rows: Campaign[]; count: number }> {
-  const { status, page = 1, pageSize = 20 } = options;
-  const where: any = {};
+  const { status, page = 1, pageSize = DEFAULT_PAGE_SIZE } = options;
+  const where: WhereOptions<Attributes<Campaign>> = {};
   if (status) {
     where.status = status;
   }
@@ -85,11 +89,11 @@ export async function updateCampaign(
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be updated');
   }
 
-  const updateData: any = {};
+  const updateData: Partial<Attributes<Campaign>> = {};
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.startTime !== undefined) updateData.startTime = new Date(data.startTime);
@@ -105,7 +109,7 @@ export async function deleteCampaign(id: number): Promise<void> {
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be deleted');
   }
 
@@ -124,7 +128,7 @@ export async function addVideos(
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be modified');
   }
 
@@ -150,7 +154,7 @@ export async function removeVideo(
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be modified');
   }
 
@@ -166,7 +170,7 @@ export async function addStores(
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be modified');
   }
 
@@ -192,7 +196,7 @@ export async function removeStore(
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be modified');
   }
 
@@ -211,7 +215,7 @@ export async function publishCampaign(campaignId: number): Promise<Campaign> {
     throw new Error('Campaign not found');
   }
 
-  if (campaign.status !== 'draft') {
+  if (campaign.status !== CAMPAIGN_DRAFT_STATUS) {
     throw new Error('Only draft campaigns can be published');
   }
 
@@ -227,13 +231,8 @@ export async function publishCampaign(campaignId: number): Promise<Campaign> {
     throw new Error('Campaign must have at least one store');
   }
 
-  // startTime must be in the future (or now)
-  const now = new Date();
-  if (new Date(campaign.startTime) > now) {
-    // startTime is in the future - that's fine
-  }
-  // If startTime is in the past, we still allow publishing (campaign starts immediately)
-
+  // startTime is informational only: a past startTime is allowed (the campaign
+  // starts immediately) and a future startTime does not block publishing.
   await campaign.update({ status: 'active' });
 
   // Notify stores via MQTT

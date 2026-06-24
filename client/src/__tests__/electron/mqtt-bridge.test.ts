@@ -42,6 +42,11 @@ vi.mock('fs', () => ({
   existsSync: vi.fn().mockReturnValue(false),
   readdirSync: vi.fn().mockReturnValue([]),
   rmSync: vi.fn(),
+  // disk-utils.ts reads disk usage via fs.statfs on win32.
+  statfs: vi.fn((
+    _p: string,
+    cb: (err: null, stats: { bsize: number; blocks: number; bfree: number; bavail: number }) => void,
+  ) => cb(null, { bsize: 1, blocks: 100000000000, bfree: 8000000000, bavail: 8000000000 })),
 }));
 
 vi.mock('path', () => ({

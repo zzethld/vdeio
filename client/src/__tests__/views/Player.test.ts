@@ -29,7 +29,6 @@ vi.mock('@/composables/usePlayer', () => {
       reactive({
         loading: false,
         error: '',
-        videoTitle: '',
         initPlayer: mockFns.initPlayer,
         destroy: mockFns.destroy,
         retry: mockFns.retry,

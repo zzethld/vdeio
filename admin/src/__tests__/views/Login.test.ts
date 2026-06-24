@@ -147,19 +147,19 @@ describe('Login View', () => {
   });
 
   describe('handleLogin — failure', () => {
-    it('shows ElMessage.error when login throws', async () => {
+    it('does not duplicate error message (interceptor owns it)', async () => {
       useAuthStore().login = vi.fn().mockRejectedValue(new Error('bad creds'));
       const wrapper = mountLogin();
 
       await wrapper.find('.el-button-stub').trigger('click');
       await flushPromises();
 
-      expect(messageMocks.ElMessage.error).toHaveBeenCalledWith(
-        '登录失败，请检查用户名和密码',
-      );
+      // Error feedback is the request interceptor's responsibility; the view
+      // must not show a second ElMessage.error.
+      expect(messageMocks.ElMessage.error).not.toHaveBeenCalled();
     });
 
-    it('uses server-provided message when present', async () => {
+    it('does not show error message (handled by interceptor)', async () => {
       const err = Object.assign(new Error('fail'), {
         response: { data: { message: '密码错误' } },
       });
@@ -169,7 +169,7 @@ describe('Login View', () => {
       await wrapper.find('.el-button-stub').trigger('click');
       await flushPromises();
 
-      expect(messageMocks.ElMessage.error).toHaveBeenCalledWith('密码错误');
+      expect(messageMocks.ElMessage.error).not.toHaveBeenCalled();
     });
 
     it('does not navigate on failure', async () => {
